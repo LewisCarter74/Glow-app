@@ -33,8 +33,8 @@ export default function AccountPage() {
   };
   
   const handleSignOut = () => {
-    // Simulate sign out
-    router.push('/login');
+    // Simulate sign out by redirecting to home
+    router.push('/');
   }
 
   return (

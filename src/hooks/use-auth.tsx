@@ -1,44 +1,100 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, signOut as firebaseSignOut, User } from 'firebase/auth';
-import { app } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  type ReactNode,
+} from 'react';
 
-const auth = getAuth(app);
+// A simple mock user object
+type User = {
+  name: string;
+  email: string;
+};
 
-interface AuthContextType {
+// The shape of the auth context
+type AuthContextType = {
   user: User | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-}
+  signIn: () => void;
+  signOut: () => void;
+  isLoading: boolean;
+};
 
+// Create the auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to manage a cookie
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
+const setCookie = (name: string, value: string, days: number = 1) => {
+  if (typeof document === 'undefined') return;
+  let expires = "";
+  if (days) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days*24*60*60*1000));
+      expires = "; expires=" + date.toUTCString();
+  }
+  document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+}
+
+const removeCookie = (name: string) => {
+  if (typeof document === 'undefined') return;
+  document.cookie = name + '=; Max-Age=-99999999; path=/;';  
+}
+
+// The AuthProvider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Check for the auth cookie on mount
+    const authCookie = getCookie('auth');
+    if (authCookie) {
+      // In a real app, you'd verify the token with your backend
+      // For this mock, we just assume the cookie means the user is logged in
+      setUser({ name: 'Ada Lovelace', email: 'ada@example.com' });
+    }
+    setIsLoading(false);
   }, []);
-  
-  const signOut = async () => {
-    await firebaseSignOut(auth);
-    router.push('/login');
+
+  const signIn = () => {
+    // This is where you would handle the actual login logic
+    // For now, we'll just set a mock user and a cookie
+    const mockUser: User = { name: 'Ada Lovelace', email: 'ada@example.com' };
+    setUser(mockUser);
+    setCookie('auth', 'true');
   };
 
-  const value = { user, loading, signOut };
+  const signOut = () => {
+    // Clear the user and the cookie
+    setUser(null);
+    removeCookie('auth');
+    // Redirect to the homepage after signout
+    router.push('/');
+  };
+
+  const value = {
+    user,
+    signIn,
+    signOut,
+    isLoading,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Custom hook to use the auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
