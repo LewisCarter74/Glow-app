@@ -29,8 +29,16 @@ export type StyleRecommendationInput = z.infer<typeof StyleRecommendationInputSc
 
 const StyleRecommendationOutputSchema = z.object({
   recommendations: z
-    .array(z.string())
-    .describe('An array of style recommendations for hairstyles or beauty treatments.'),
+    .array(
+      z.object({
+        description: z.string().describe('The detailed description of the recommended hairstyle or beauty treatment.'),
+        imageUrl: z
+          .string()
+          .describe('The data URI of the image generated for this recommendation.'),
+      })
+    )
+    .length(4)
+    .describe('An array of exactly 4 style recommendations, each with a description and a generated image.'),
 });
 
 export type StyleRecommendationOutput = z.infer<typeof StyleRecommendationOutputSchema>;
@@ -39,13 +47,15 @@ export async function getStyleRecommendation(input: StyleRecommendationInput): P
   return styleRecommendationFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'styleRecommendationPrompt',
-  input: {schema: StyleRecommendationInputSchema},
-  output: {schema: StyleRecommendationOutputSchema},
-  prompt: `You are an expert stylist at GlowApp, an elite salon.
+const recommendationsPrompt = ai.definePrompt({
+    name: 'styleRecommendationsPrompt',
+    input: {schema: StyleRecommendationInputSchema},
+    output: {schema: z.object({
+        recommendations: z.array(z.string()).length(4).describe('An array of 4 style recommendations for hairstyles or beauty treatments.'),
+    })},
+    prompt: `You are an expert stylist at GlowApp, an elite salon.
 
-  Based on the user's photo and/or preferences, recommend hairstyles or beauty treatments offered at the salon.
+  Based on the user's photo and/or preferences, recommend 4 distinct hairstyles or beauty treatments offered at the salon.
 
   Consider the user's preferences if provided.
 
@@ -55,9 +65,10 @@ const prompt = ai.definePrompt({
 
   User Photo: {{#if photoDataUri}}{{media url=photoDataUri}}{{else}}No photo provided.{{/if}}
 
-  Return an array of style recommendations.
+  Return an array of 4 style recommendations.
   `,
 });
+
 
 const styleRecommendationFlow = ai.defineFlow(
   {
@@ -66,7 +77,28 @@ const styleRecommendationFlow = ai.defineFlow(
     outputSchema: StyleRecommendationOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const { output } = await recommendationsPrompt(input);
+    if (!output?.recommendations) {
+        throw new Error("Could not generate style recommendations");
+    }
+
+    const imageGenerationPromises = output.recommendations.map(async (rec) => {
+        const { media } = await ai.generate({
+            model: 'googleai/gemini-2.0-flash-preview-image-generation',
+            prompt: `A high-fashion, photorealistic image of the following hairstyle or beauty treatment: ${rec}`,
+            config: {
+                responseModalities: ['TEXT', 'IMAGE'],
+            },
+        });
+
+        return {
+            description: rec,
+            imageUrl: media!.url,
+        };
+    });
+    
+    const recommendationsWithImages = await Promise.all(imageGenerationPromises);
+
+    return { recommendations: recommendationsWithImages };
   }
 );

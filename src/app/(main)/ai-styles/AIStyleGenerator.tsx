@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -83,8 +84,8 @@ export default function AIStyleGenerator() {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-      <Card className="shadow-lg">
+    <div className="space-y-8">
+      <Card className="shadow-lg max-w-2xl mx-auto">
         <form onSubmit={handleSubmit}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
@@ -147,33 +148,42 @@ export default function AIStyleGenerator() {
           </CardFooter>
         </form>
       </Card>
-      <div className="flex items-center justify-center">
+      
+      <div className="max-w-7xl mx-auto">
         {isLoading && (
-          <div className="text-center">
-            <Sparkles className="w-12 h-12 text-primary animate-spin" />
+          <div className="text-center p-8">
+            <Sparkles className="w-12 h-12 text-primary animate-spin mx-auto" />
             <p className="mt-4 text-muted-foreground">
               Our AI is crafting your new look...
             </p>
           </div>
         )}
         {!isLoading && recommendations && (
-          <Card className="w-full bg-secondary/50 shadow-lg">
-            <CardHeader>
-              <CardTitle>Your Style Recommendations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside space-y-3">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-center">Your Style Recommendations</h2>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {recommendations.recommendations.map((rec, index) => (
-                  <li key={index} className="text-foreground/90">
-                    {rec}
-                  </li>
+                  <Card key={index} className="flex flex-col overflow-hidden">
+                    <div className="aspect-[4/3] relative">
+                        <Image
+                            src={rec.imageUrl}
+                            alt={rec.description}
+                            layout="fill"
+                            objectFit="cover"
+                        />
+                    </div>
+                    <CardContent className="p-4 flex-grow">
+                      <p className="text-sm text-foreground/90">
+                        {rec.description}
+                      </p>
+                    </CardContent>
+                  </Card>
                 ))}
-              </ul>
-            </CardContent>
-          </Card>
+              </div>
+          </div>
         )}
          {!isLoading && !recommendations && (
-           <div className="text-center p-8 border-2 border-dashed rounded-lg">
+           <div className="text-center p-8 border-2 border-dashed rounded-lg max-w-2xl mx-auto">
             <Wand2 className="w-12 h-12 mx-auto text-muted-foreground/50"/>
              <p className="mt-4 text-muted-foreground">Your recommendations will appear here.</p>
            </div>
