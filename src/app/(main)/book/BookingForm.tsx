@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
 import { services, stylists } from "@/lib/placeholder-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,31 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { add, format } from "date-fns";
 import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
-
-type BookingFormValues = {
-  services: string[];
-  stylistId: string;
-  date: Date;
-  time: string;
-};
-
-const timeSlots = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"];
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
-  const { control, handleSubmit, watch, formState: { errors } } = useForm<BookingFormValues>({
-    defaultValues: {
-      services: [],
-      stylistId: "any",
-      date: new Date(),
-      time: "",
-    },
-  });
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const selectedServices = watch("services");
-  const selectedStylistId = watch("stylistId");
-  const selectedDate = watch("date");
-  const selectedTime = watch("time");
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string>("");
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -44,13 +30,41 @@ export default function BookingForm() {
     .filter(s => selectedServices.includes(s.id))
     .reduce((acc, s) => acc + s.duration, 0);
 
-  const onSubmit = (data: BookingFormValues) => {
-    console.log(data);
-    setStep(4);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log({
+        services: selectedServices,
+        stylist: selectedStylistId,
+        date: selectedDate,
+        time: selectedTime,
+    });
+    toast({
+        title: "Booking Confirmed!",
+        description: "Your appointment has been successfully booked.",
+    })
+    router.push('/account');
   };
   
-  const nextStep = () => setStep((prev) => prev + 1);
+  const nextStep = () => {
+    if (step === 1 && selectedServices.length === 0) {
+        toast({ variant: "destructive", description: "Please select at least one service."});
+        return;
+    }
+    if (step === 3 && (!selectedDate || !selectedTime)) {
+        toast({ variant: "destructive", description: "Please select a date and time."});
+        return;
+    }
+    setStep((prev) => prev + 1)
+  };
   const prevStep = () => setStep((prev) => prev - 1);
+
+  const handleServiceChange = (serviceId: string) => {
+    setSelectedServices(prev => 
+        prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  }
 
   return (
     <Card className="w-full max-w-4xl mx-auto shadow-2xl">
@@ -65,49 +79,30 @@ export default function BookingForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit}>
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
               {services.map((service) => (
-                <Controller
-                  key={service.id}
-                  name="services"
-                  control={control}
-                  rules={{ required: "Please select at least one service" }}
-                  render={({ field }) => (
-                    <div className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
+                    <div key={service.id} className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
                       <Checkbox
                         id={service.id}
-                        checked={field.value?.includes(service.id)}
-                        onCheckedChange={(checked) => {
-                          return checked
-                            ? field.onChange([...(field.value || []), service.id])
-                            : field.onChange(
-                                field.value?.filter((value) => value !== service.id)
-                              );
-                        }}
+                        checked={selectedServices.includes(service.id)}
+                        onCheckedChange={() => handleServiceChange(service.id)}
                       />
                       <label htmlFor={service.id} className="font-medium leading-none flex-1 cursor-pointer">
                         {service.name}
                       </label>
                       <div className="text-sm text-muted-foreground">${service.price}</div>
                     </div>
-                  )}
-                />
               ))}
-              {errors.services && <p className="text-sm font-medium text-destructive">{errors.services.message}</p>}
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><User /> Choose a Stylist</h3>
-              <Controller
-                name="stylistId"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={setSelectedStylistId} defaultValue={selectedStylistId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a stylist" />
                     </SelectTrigger>
@@ -118,8 +113,6 @@ export default function BookingForm() {
                       ))}
                     </SelectContent>
                   </Select>
-                )}
-              />
             </div>
           )}
 
@@ -127,37 +120,23 @@ export default function BookingForm() {
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold flex items-center gap-2"><CalendarIcon /> Pick a Date</h3>
-                <Controller
-                  name="date"
-                  control={control}
-                  render={({ field }) => (
                     <Calendar
                       mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
                       disabled={(date) => date < new Date() || date > add(new Date(), {days: 60})}
                       className="rounded-md border"
                     />
-                  )}
-                />
               </div>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold flex items-center gap-2"><Clock /> Pick a Time</h3>
-                 <Controller
-                    name="time"
-                    control={control}
-                    rules={{ required: "Please select a time" }}
-                    render={({ field }) => (
-                        <div className="grid grid-cols-3 gap-2">
-                        {timeSlots.map(time => (
-                            <Button key={time} variant={field.value === time ? "default" : "outline"} onClick={() => field.onChange(time)}>
-                            {time}
-                            </Button>
-                        ))}
-                        </div>
-                    )}
-                 />
-                 {errors.time && <p className="text-sm font-medium text-destructive">{errors.time.message}</p>}
+                <div className="grid grid-cols-3 gap-2">
+                {["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"].map(time => (
+                    <Button key={time} type="button" variant={selectedTime === time ? "default" : "outline"} onClick={() => setSelectedTime(time)}>
+                    {time}
+                    </Button>
+                ))}
+                </div>
               </div>
             </div>
           )}
@@ -179,7 +158,7 @@ export default function BookingForm() {
                         </div>
                         <div>
                             <h4 className="font-semibold">Date & Time</h4>
-                            <p>{format(selectedDate, "EEEE, MMMM do, yyyy")} at {selectedTime}</p>
+                            <p>{selectedDate && selectedTime ? format(selectedDate, "EEEE, MMMM do, yyyy") + " at " + selectedTime : 'Not selected'}</p>
                         </div>
                         <div className="border-t pt-4 mt-4 text-lg font-bold flex justify-between">
                             <span>Total Cost:</span>

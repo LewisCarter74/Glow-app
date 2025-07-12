@@ -9,57 +9,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Heart, User, LogOut } from 'lucide-react';
 import StylistCard from '@/components/StylistCard';
 import { stylists } from '@/lib/placeholder-data';
-import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { updateProfile } from 'firebase/auth';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AccountPage() {
-  const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('Ada Lovelace');
+  const [email, setEmail] = useState('ada@example.com');
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setEmail(user.email || '');
-    }
-  }, [user, loading, router]);
-
   const handleSaveChanges = async () => {
-    if (!user) return;
     setIsSaving(true);
-    try {
-      await updateProfile(user, { displayName });
-      toast({
+    // Simulate saving
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast({
         title: "Success",
         description: "Your profile has been updated.",
-      })
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not update your profile.",
-      })
-    } finally {
-      setIsSaving(false);
-    }
+    })
+    setIsSaving(false);
   };
-
-  if (loading || !user) {
-    return (
-        <div className="flex justify-center items-center min-h-screen">
-            <p>Loading...</p>
-        </div>
-    );
+  
+  const handleSignOut = () => {
+    // Simulate sign out
+    router.push('/login');
   }
 
   return (
@@ -156,7 +131,7 @@ export default function AccountPage() {
                 <Button onClick={handleSaveChanges} disabled={isSaving}>
                   {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
-                <Button variant="ghost" onClick={signOut} className="text-muted-foreground">
+                <Button variant="ghost" onClick={handleSignOut} className="text-muted-foreground">
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </Button>

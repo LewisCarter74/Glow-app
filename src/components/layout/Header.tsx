@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, User, LogOut, LayoutDashboard, TicketPercent, Calendar } from "lucide-react";
+import { Sparkles, User, LogOut, LayoutDashboard, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "./MobileNav";
 import {
@@ -12,8 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/use-auth";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 const navLinks = [
   { href: "/stylists", label: "Stylists" },
@@ -24,8 +24,35 @@ const navLinks = [
 
 const mobileNavLinks = [...navLinks, { href: "/book", label: "Book Now" }];
 
+// Mock auth hook
+const useMockAuth = () => {
+    const [user, setUser] = useState<{displayName: string} | null>(null);
+    const [loading, setLoading] = useState(true);
+    const pathname = usePathname();
+
+    useEffect(() => {
+        // Simulate checking for a user session
+        const noAuthRoutes = ['/login', '/signup', '/password-reset'];
+        if (noAuthRoutes.includes(pathname)) {
+            setUser(null);
+        } else {
+            // In all other cases, assume user is logged in for UI demonstration
+            setUser({ displayName: 'Ada Lovelace' });
+        }
+        setLoading(false);
+    }, [pathname]);
+
+    const signOut = () => {
+        // This would typically handle sign-out logic
+        window.location.href = '/login';
+    };
+
+    return { user, loading, signOut };
+};
+
+
 export function Header() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut } = useMockAuth();
   const pathname = usePathname();
 
   return (
