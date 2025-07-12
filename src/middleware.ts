@@ -7,6 +7,7 @@ export function middleware(request: NextRequest) {
 
   // Define protected routes
   const protectedRoutes = ['/account', '/book', '/promotions', '/referrals'];
+  const publicAuthRoutes = ['/login', '/signup', '/forgot-password'];
   const { pathname } = request.nextUrl;
 
   // If the user is trying to access a protected route without an auth cookie,
@@ -17,9 +18,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If the user is authenticated and tries to access login or signup,
+  // If the user is authenticated and tries to access a public auth page,
   // redirect them to their account page.
-  if (authCookie && (pathname === '/login' || pathname === '/signup')) {
+  if (authCookie && publicAuthRoutes.includes(pathname)) {
     return NextResponse.redirect(new URL('/account', request.url));
   }
 
@@ -29,5 +30,5 @@ export function middleware(request: NextRequest) {
 
 // See "Matching Paths" below to learn more
 export const config = {
-  matcher: ['/account', '/book', '/promotions', '/referrals', '/login', '/signup'],
+  matcher: ['/account', '/book', '/promotions', '/referrals', '/login', '/signup', '/forgot-password'],
 };
