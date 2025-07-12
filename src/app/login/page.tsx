@@ -33,7 +33,7 @@ function LoginComponent() {
         title: 'Login Successful',
         description: "Welcome back!",
       });
-      const redirectedFrom = searchParams.get('redirectedFrom') || '/account';
+      const redirectedFrom = searchParams.get('redirectedFrom') || '/';
       router.push(redirectedFrom);
     } else {
        toast({
