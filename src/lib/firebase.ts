@@ -1,5 +1,8 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, Auth } from 'firebase/auth';
+import { config } from 'dotenv';
+
+config({ path: '.env.local' });
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,13 +14,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app: FirebaseApp;
-if (typeof window !== 'undefined' && !getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
-}
-
-const auth = getAuth(app);
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth: Auth = getAuth(app);
 
 export { app, auth };
