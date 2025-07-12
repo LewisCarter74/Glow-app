@@ -37,8 +37,8 @@ const StyleRecommendationOutputSchema = z.object({
           .describe('The data URI of the image generated for this recommendation.'),
       })
     )
-    .length(4)
-    .describe('An array of exactly 4 style recommendations, each with a description and a generated image.'),
+    .length(3)
+    .describe('An array of exactly 3 style recommendations, each with a description and a generated image.'),
 });
 
 export type StyleRecommendationOutput = z.infer<typeof StyleRecommendationOutputSchema>;
@@ -51,11 +51,11 @@ const recommendationsPrompt = ai.definePrompt({
     name: 'styleRecommendationsPrompt',
     input: {schema: StyleRecommendationInputSchema},
     output: {schema: z.object({
-        recommendations: z.array(z.string()).length(4).describe('An array of 4 style recommendations for hairstyles or beauty treatments.'),
+        recommendations: z.array(z.string()).length(3).describe('An array of 3 style recommendations for hairstyles or beauty treatments.'),
     })},
     prompt: `You are an expert stylist at GlowApp, an elite salon.
 
-  Based on the user's photo and/or preferences, recommend 4 distinct hairstyles or beauty treatments offered at the salon.
+  Based on the user's photo and/or preferences, recommend 3 distinct hairstyles or beauty treatments offered at the salon.
 
   Consider the user's preferences if provided.
 
@@ -65,7 +65,7 @@ const recommendationsPrompt = ai.definePrompt({
 
   User Photo: {{#if photoDataUri}}{{media url=photoDataUri}}{{else}}No photo provided.{{/if}}
 
-  Return an array of 4 style recommendations.
+  Return an array of 3 style recommendations.
   `,
 });
 

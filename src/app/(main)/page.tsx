@@ -4,7 +4,7 @@ import { stylists, portfolioImages, promotions } from "@/lib/placeholder-data";
 import { Button } from "@/components/ui/button";
 import StylistCard from "@/components/StylistCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Wand2 } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -93,6 +93,22 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* AI Suggester Teaser */}
+      <section className="py-16 md:py-24 bg-accent/10">
+        <div className="container mx-auto px-4 text-center">
+          <Wand2 className="w-12 h-12 mx-auto text-accent" />
+          <h2 className="text-3xl md:text-4xl font-bold text-center mt-6 mb-4 font-headline">
+            Can't Decide on a Look?
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+            Let our AI stylist find the perfect new look for you. Get personalized recommendations in seconds.
+          </p>
+          <Button asChild size="lg">
+            <Link href="/ai-styles">Try the AI Style Finder <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          </Button>
         </div>
       </section>
     </div>

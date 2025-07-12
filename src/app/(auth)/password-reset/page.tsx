@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Sparkles } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,40 +23,39 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
 const auth = getAuth(app);
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(1, { message: 'Password is required.' }),
 });
 
-export default function LoginPage() {
+export default function PasswordResetPage() {
   const { toast } = useToast();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
-      password: '',
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      router.push('/account');
+      await sendPasswordResetEmail(auth, values.email);
+      toast({
+        title: 'Password Reset Email Sent',
+        description: 'Check your inbox for a link to reset your password.',
+      });
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Login Failed',
+        title: 'Error',
         description: error.message,
       });
     } finally {
@@ -71,9 +69,9 @@ export default function LoginPage() {
         <div className="flex justify-center mb-4">
           <Sparkles className="h-10 w-10 text-primary" />
         </div>
-        <CardTitle className="text-2xl text-center">Login to GlowApp</CardTitle>
+        <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
         <CardDescription className="text-center">
-          Enter your email below to login to your account
+          Enter your email to receive a password reset link.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -92,36 +90,15 @@ export default function LoginPage() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem className="grid gap-2">
-                  <div className="flex items-center">
-                    <FormLabel>Password</FormLabel>
-                    <Link
-                      href="/password-reset"
-                      className="ml-auto inline-block text-sm underline"
-                    >
-                      Forgot your password?
-                    </Link>
-                  </div>
-                  <FormControl>
-                    <Input type="password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? 'Sending...' : 'Send Reset Link'}
             </Button>
           </form>
         </Form>
         <div className="mt-4 text-center text-sm">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="underline">
-            Sign up
+          Remember your password?{' '}
+          <Link href="/login" className="underline">
+            Login
           </Link>
         </div>
       </CardContent>
