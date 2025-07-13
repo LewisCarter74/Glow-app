@@ -12,11 +12,13 @@ import { add, format } from "date-fns";
 import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const { toast } = useToast();
   const router = useRouter();
+  const { user, isLoading } = useAuth();
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
@@ -32,7 +34,18 @@ export default function BookingForm() {
     .reduce((acc, s) => acc + s.duration, 0);
 
   const handleBookingConfirmation = () => {
-    // The middleware now handles all auth checks. If we are here, the user is logged in.
+    // Wait until the auth state is confirmed
+    if (isLoading) return;
+
+    // If the user is not logged in after the check, redirect them to login.
+    // The middleware should ideally handle this, but this is a final safeguard.
+    if (!user) {
+        const loginUrl = new URL('/login', window.location.origin);
+        loginUrl.searchParams.set('redirectedFrom', '/book');
+        router.push(loginUrl.toString());
+        return;
+    }
+
     console.log({
         services: selectedServices,
         stylist: selectedStylistId,
@@ -184,8 +197,8 @@ export default function BookingForm() {
               </Button>
             )}
             
-            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime)}>
-              {step < 4 ? 'Next' : 'Confirm Booking'} <ArrowRight className="ml-2 h-4 w-4" />
+            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime) || (step === 4 && isLoading)}>
+              {step < 4 ? 'Next' : (isLoading ? 'Confirming...' : 'Confirm Booking')} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
