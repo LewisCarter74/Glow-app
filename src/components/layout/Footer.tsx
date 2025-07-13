@@ -1,7 +1,6 @@
 
 import { Instagram, Phone, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '../ui/button';
 
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -18,18 +17,42 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function Footer() {
   return (
     <footer className="bg-muted/50 border-t">
-      <div className="container mx-auto flex flex-col items-center gap-4 py-4 text-sm">
-        <div className="w-full flex flex-col md:flex-row items-center md:justify-between gap-4">
-            <div className="flex flex-col items-center md:items-start gap-2">
-                <Link href="/" className="flex items-center gap-2">
+      <div className="container mx-auto py-8 px-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
+            
+            {/* Column 1: Brand */}
+            <div className="flex flex-col gap-4 items-center md:items-start">
+                 <Link href="/" className="flex items-center gap-2">
                     <Sparkles className="h-6 w-6 text-primary" />
-                    <p className="font-bold leading-loose">
-                    GlowApp
-                    </p>
+                    <span className="font-bold text-lg">GlowApp</span>
                 </Link>
+                <p className="text-muted-foreground text-center md:text-left">Your exclusive escape for world-class beauty treatments.</p>
             </div>
-            <div className="flex flex-col items-center md:items-end gap-4">
-                <div className="flex items-center gap-4">
+
+            {/* Column 2: Quick Links */}
+            <div className="text-center md:text-left">
+                <h3 className="font-semibold mb-4">Quick Links</h3>
+                <nav className="flex flex-col gap-2">
+                    <Link href="/" className="text-muted-foreground hover:text-primary">Home</Link>
+                    <Link href="/services" className="text-muted-foreground hover:text-primary">Services</Link>
+                    <Link href="/stylists" className="text-muted-foreground hover:text-primary">Stylists</Link>
+                    <Link href="/book" className="text-muted-foreground hover:text-primary">Book Now</Link>
+                </nav>
+            </div>
+
+            {/* Column 3: Legal */}
+             <div className="text-center md:text-left">
+                <h3 className="font-semibold mb-4">Legal</h3>
+                <nav className="flex flex-col gap-2">
+                    <Link href="/privacy" className="text-muted-foreground hover:text-primary">Privacy Policy</Link>
+                    <Link href="/terms" className="text-muted-foreground hover:text-primary">Terms of Service</Link>
+                </nav>
+            </div>
+
+            {/* Column 4: Social & Contact */}
+            <div className="flex flex-col gap-4 items-center md:items-start">
+                 <h3 className="font-semibold">Connect With Us</h3>
+                 <div className="flex items-center gap-4">
                     <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                         <Instagram className="h-6 w-6" />
                     </a>
@@ -39,19 +62,15 @@ export function Footer() {
                     <a href="https://wa.me/254757261329" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                         <WhatsAppIcon className="h-6 w-6" />
                     </a>
+                    <a href="tel:0757261329" className="text-muted-foreground hover:text-primary transition-colors">
+                       <Phone className="h-6 w-6" />
+                    </a>
                 </div>
-                <Button asChild variant="outline">
-                  <a href="tel:0757261329" className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    Call Us
-                  </a>
-                </Button>
             </div>
         </div>
-        <div className="w-full pt-4 border-t text-center">
-            <p className="text-muted-foreground">
-                © {new Date().getFullYear()} GlowApp. All rights reserved.
-            </p>
+
+        <div className="w-full pt-8 mt-8 border-t text-center text-xs text-muted-foreground">
+            <p>© {new Date().getFullYear()} GlowApp. All rights reserved.</p>
         </div>
       </div>
     </footer>
