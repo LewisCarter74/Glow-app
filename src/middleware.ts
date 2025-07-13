@@ -9,25 +9,25 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = pathname.startsWith('/account') || pathname.startsWith('/book');
   const isPublicAuthRoute = ['/login', '/signup', '/forgot-password'].includes(pathname);
 
-  // If the user is logged in
-  if (authCookie) {
-    // and tries to access login/signup, redirect them to the account page
-    if (isPublicAuthRoute) {
-      return NextResponse.redirect(new URL('/account', request.url));
-    }
-    // Otherwise, they can proceed
-    return NextResponse.next();
-  }
-
-  // If the user is logged out
+  // If the user is logged out...
   if (!authCookie) {
-    // and tries to access a protected route, redirect them to login
+    // and tries to access a protected route, redirect them to login.
     if (isProtectedRoute) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirectedFrom', pathname); // Remember where they were going
       return NextResponse.redirect(loginUrl);
     }
-    // Otherwise, they can proceed
+    // Otherwise, they can access any public page.
+    return NextResponse.next();
+  }
+
+  // If the user is logged in...
+  if (authCookie) {
+    // and tries to access a public auth route (like login), redirect them to their account page.
+    if (isPublicAuthRoute) {
+      return NextResponse.redirect(new URL('/account', request.url));
+    }
+    // Otherwise, they can access any page (including protected ones).
     return NextResponse.next();
   }
 
