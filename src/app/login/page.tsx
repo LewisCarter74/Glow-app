@@ -14,33 +14,15 @@ import { useToast } from '@/hooks/use-toast';
 function LoginComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, user } = useAuth();
+  const { signIn, user, isLoading: isAuthLoading } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('ada@example.com');
   const [password, setPassword] = useState('password');
   const [isSigningIn, setIsSigningIn] = useState(false);
+  
   const redirectedFrom = searchParams.get('redirectedFrom');
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSigningIn(true);
-    
-    try {
-      await signIn(email, password);
-      // The redirect will now be handled by the useEffect below
-    } catch (error) {
-       toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: 'Please check your email and password.',
-      });
-      setIsSigningIn(false);
-    }
-  };
-
   useEffect(() => {
-    // This effect runs when the user state changes.
-    // If the user is logged in, redirect them.
     if (user) {
         toast({
             title: 'Login Successful',
@@ -49,7 +31,28 @@ function LoginComponent() {
         router.push(redirectedFrom || '/account');
     }
   }, [user, router, redirectedFrom, toast]);
-  
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSigningIn(true);
+    
+    try {
+      await signIn(email, password);
+      // The redirect is handled by the useEffect above
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: 'Please check your email and password.',
+      });
+    } finally {
+        setIsSigningIn(false);
+    }
+  };
+
+  if (isAuthLoading) {
+    return <div>Loading...</div>; // Or a proper spinner component
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-secondary/50">

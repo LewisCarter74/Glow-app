@@ -59,15 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On initial load, check if the user is logged in via cookie
   useEffect(() => {
-    const authCookie = getCookie('auth');
-    if (authCookie) {
-      setUser({ name: 'Ada Lovelace', email: 'ada@example.com' });
+    try {
+      const authCookie = getCookie('auth');
+      if (authCookie) {
+        setUser({ name: 'Ada Lovelace', email: 'ada@example.com' });
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
-    setIsLoading(true);
+  const signIn = useCallback(async (email: string, pass: string) => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -76,16 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const mockUser: User = { name: 'Ada Lovelace', email: email };
     setCookie('auth', 'true');
     setUser(mockUser);
-    setIsLoading(false);
-  };
+  }, []);
 
-  const signOut = () => {
-    setIsLoading(true);
+  const signOut = useCallback(() => {
     // Clear the user and the cookie
     removeCookie('auth');
     setUser(null);
-    setIsLoading(false);
-  };
+  }, []);
 
   const value = {
     user,
