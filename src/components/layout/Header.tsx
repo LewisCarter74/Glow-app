@@ -17,6 +17,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 
 const navLinks = [
+  { href: "/", label: "Home" },
   { href: "/stylists", label: "Stylists" },
   { href: "/services", label: "Services" },
   { href: "/ai-styles", label: "AI Styles" },

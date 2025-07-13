@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -11,11 +12,13 @@ import { add, format } from "date-fns";
 import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
@@ -30,8 +33,17 @@ export default function BookingForm() {
     .filter(s => selectedServices.includes(s.id))
     .reduce((acc, s) => acc + s.duration, 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBookingConfirmation = () => {
+    if (!user) {
+        toast({
+            variant: "destructive",
+            title: "Authentication Required",
+            description: "Please log in to complete your booking.",
+        });
+        router.push('/login?redirectedFrom=/book');
+        return;
+    }
+
     console.log({
         services: selectedServices,
         stylist: selectedStylistId,
@@ -42,9 +54,9 @@ export default function BookingForm() {
         title: "Booking Confirmed!",
         description: "Your appointment has been successfully booked.",
     })
-    router.push('/account');
-  };
-  
+    router.push('/account/appointments');
+  }
+
   const nextStep = () => {
     if (step === 1 && selectedServices.length === 0) {
         toast({ variant: "destructive", description: "Please select at least one service."});
@@ -52,6 +64,10 @@ export default function BookingForm() {
     }
     if (step === 3 && (!selectedDate || !selectedTime)) {
         toast({ variant: "destructive", description: "Please select a date and time."});
+        return;
+    }
+    if (step === 4) {
+        handleBookingConfirmation();
         return;
     }
     setStep((prev) => prev + 1)
@@ -74,12 +90,12 @@ export default function BookingForm() {
             Step {step} of 4: {
                 step === 1 ? "Select Services" : 
                 step === 2 ? "Choose a Stylist" :
-                step === 3 ? "Pick a Date & Time" : "Confirm & Pay"
+                step === 3 ? "Pick a Date & Time" : "Confirm Your Booking"
             }
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit}>
+        <div>
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
@@ -169,7 +185,6 @@ export default function BookingForm() {
                         </div>
                     </CardContent>
                 </Card>
-                <Button type="submit" size="lg" className="w-full">Confirm & Proceed to Payment</Button>
             </div>
           )}
 
@@ -179,13 +194,12 @@ export default function BookingForm() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
               </Button>
             )}
-            {step < 4 && (
-              <Button type="button" onClick={nextStep} className="ml-auto" disabled={step === 1 && selectedServices.length === 0}>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+            
+            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime)}>
+              {step < 4 ? 'Next' : (user ? 'Confirm Booking' : 'Login to Book')} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );

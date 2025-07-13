@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth');
 
   // Define protected routes
-  const protectedRoutes = ['/book', '/account'];
+  const protectedRoutes = ['/account'];
   const publicAuthRoutes = ['/login', '/signup', '/forgot-password'];
   const { pathname } = request.nextUrl;
 
