@@ -34,6 +34,8 @@ export default function BookingForm() {
     .reduce((acc, s) => acc + s.duration, 0);
 
   const handleBookingConfirmation = () => {
+    // This check is now primarily a fallback. The middleware handles the initial block.
+    // The nextStep logic will handle redirecting unauthenticated users.
     if (!user) {
         toast({
             variant: "destructive",
@@ -67,6 +69,7 @@ export default function BookingForm() {
         return;
     }
     if (step === 4) {
+        // The middleware already protects the /book route, so if we get here, the user is logged in.
         handleBookingConfirmation();
         return;
     }
@@ -196,7 +199,7 @@ export default function BookingForm() {
             )}
             
             <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime)}>
-              {step < 4 ? 'Next' : (user ? 'Confirm Booking' : 'Login to Book')} <ArrowRight className="ml-2 h-4 w-4" />
+              {step < 4 ? 'Next' : 'Confirm Booking'} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
