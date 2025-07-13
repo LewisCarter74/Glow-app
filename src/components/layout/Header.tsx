@@ -52,7 +52,7 @@ export function Header() {
           <span className="font-bold text-lg hidden sm:inline-block">GlowApp</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+        <nav className="hidden lg:flex items-center gap-6 text-sm font-medium">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -107,7 +107,7 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <MobileNav navLinks={mobileNavLinks} />
           </div>
         </div>
