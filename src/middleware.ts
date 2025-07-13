@@ -6,29 +6,31 @@ export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth');
   const { pathname } = request.nextUrl;
 
-  // Routes that require authentication
-  const protectedRoutes = ['/account', '/book'];
-  
-  // Auth pages (login, signup) that logged-in users shouldn't access
-  const publicAuthRoutes = ['/login', '/signup', '/forgot-password'];
+  const isProtectedRoute = pathname.startsWith('/account') || pathname.startsWith('/book');
+  const isPublicAuthRoute = ['/login', '/signup', '/forgot-password'].includes(pathname);
 
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-  const isPublicAuthRoute = publicAuthRoutes.some(route => pathname.startsWith(route));
-
-  // If user is not authenticated and tries to access a protected route, redirect to login
-  if (!authCookie && isProtectedRoute) {
-    const loginUrl = new URL('/login', request.url);
-    // Remember where the user was trying to go
-    loginUrl.searchParams.set('redirectedFrom', pathname);
-    return NextResponse.redirect(loginUrl);
+  // If the user is logged in
+  if (authCookie) {
+    // and tries to access login/signup, redirect them to the account page
+    if (isPublicAuthRoute) {
+      return NextResponse.redirect(new URL('/account', request.url));
+    }
+    // Otherwise, they can proceed
+    return NextResponse.next();
   }
 
-  // If user is authenticated and tries to access a login/signup page, redirect to home
-  if (authCookie && isPublicAuthRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // If the user is logged out
+  if (!authCookie) {
+    // and tries to access a protected route, redirect them to login
+    if (isProtectedRoute) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirectedFrom', pathname); // Remember where they were going
+      return NextResponse.redirect(loginUrl);
+    }
+    // Otherwise, they can proceed
+    return NextResponse.next();
   }
 
-  // Otherwise, allow the request to proceed
   return NextResponse.next();
 }
 

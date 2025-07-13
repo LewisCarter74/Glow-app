@@ -21,14 +21,6 @@ function LoginComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const redirectedFrom = searchParams.get('redirectedFrom');
 
-  useEffect(() => {
-    // Redirect if user is already logged in and tries to access /login
-    if (user) {
-      router.push(redirectedFrom || '/');
-    }
-  }, [user, router, redirectedFrom]);
-
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -43,7 +35,8 @@ function LoginComponent() {
         title: 'Login Successful',
         description: "Welcome back!",
       });
-      // We don't need to push here, the useEffect will handle it when user state changes
+      // Redirect to the intended page or fallback to account page
+      router.push(redirectedFrom || '/account');
     } else {
        toast({
         variant: 'destructive',

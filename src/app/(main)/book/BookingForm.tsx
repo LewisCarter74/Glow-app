@@ -32,7 +32,7 @@ export default function BookingForm() {
     .reduce((acc, s) => acc + s.duration, 0);
 
   const handleBookingConfirmation = () => {
-    // This is now protected by middleware, so we can assume user is logged in.
+    // Middleware now protects this whole page, so we know the user is logged in.
     console.log({
         services: selectedServices,
         stylist: selectedStylistId,
