@@ -36,7 +36,7 @@ export function Header() {
 
   const handleSignOut = () => {
     signOut();
-    router.push('/login');
+    router.push('/');
   }
 
   const handleLoginClick = () => {
