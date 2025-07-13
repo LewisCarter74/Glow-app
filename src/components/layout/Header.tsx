@@ -19,11 +19,11 @@ import { useState } from "react";
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/about", label: "About Us" },
   { href: "/stylists", label: "Stylists" },
   { href: "/services", label: "Services" },
   { href: "/ai-styles", label: "AI Styles" },
   { href: "/promotions", label: "Promotions" },
+  { href: "/about", label: "About Us" },
 ];
 
 const mobileNavLinks = [...navLinks, { href: "/book", label: "Book Now" }];
