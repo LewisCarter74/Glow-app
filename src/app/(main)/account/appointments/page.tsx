@@ -8,6 +8,16 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import LeaveReviewDialog from '@/components/LeaveReviewDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Mock appointment type
 type Appointment = {
@@ -29,6 +39,7 @@ export default function AppointmentsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   const handleLeaveReviewClick = (appointment: Appointment) => {
@@ -43,6 +54,16 @@ export default function AppointmentsPage() {
       description: 'Your review has been submitted.',
     });
     setIsReviewDialogOpen(false);
+  }
+
+  const handleCancelAppointment = () => {
+    // In a real app, you'd perform the API call here.
+    console.log("Cancelling appointment...");
+    toast({
+      title: 'Appointment Canceled',
+      description: 'Your appointment has been successfully canceled.',
+    });
+    setIsCancelAlertOpen(false);
   }
 
   return (
@@ -67,7 +88,7 @@ export default function AppointmentsPage() {
                   <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/book')}>
                     Reschedule
                   </Button>
-                  <Button variant="destructive" size="sm">
+                  <Button variant="destructive" size="sm" onClick={() => setIsCancelAlertOpen(true)}>
                     Cancel
                   </Button>
                 </div>
@@ -101,6 +122,22 @@ export default function AppointmentsPage() {
             appointment={selectedAppointment}
         />
       )}
+      
+      <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently cancel your appointment
+              and you will need to re-book if you change your mind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelAppointment}>Confirm Cancellation</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
