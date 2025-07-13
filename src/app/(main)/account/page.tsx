@@ -2,151 +2,75 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Heart, User, LogOut } from 'lucide-react';
-import StylistCard from '@/components/StylistCard';
-import { stylists } from '@/lib/placeholder-data';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
+import { Calendar, Heart, User, LogOut, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function AccountPage() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const { toast } = useToast();
   
-  const [displayName, setDisplayName] = useState('Ada Lovelace');
-  const [email, setEmail] = useState('ada@example.com');
-  const [isSaving, setIsSaving] = useState(false);
+  const menuItems = [
+    {
+      icon: <User className="w-5 h-5 text-primary" />,
+      title: 'Profile Information',
+      description: 'View and edit your personal details.',
+      path: '/account/profile',
+    },
+    {
+      icon: <Calendar className="w-5 h-5 text-primary" />,
+      title: 'My Appointments',
+      description: 'See your upcoming and past bookings.',
+      path: '/account/appointments',
+    },
+    {
+      icon: <Heart className="w-5 h-5 text-primary" />,
+      title: 'My Favourites',
+      description: 'Access your saved stylists and services.',
+      path: '/account/favourites',
+    },
+  ];
 
-  const handleSaveChanges = async () => {
-    setIsSaving(true);
-    // Simulate saving
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({
-        title: "Success",
-        description: "Your profile has been updated.",
-    })
-    setIsSaving(false);
-  };
-  
   const handleSignOut = () => {
     signOut();
-    toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-    });
-    router.push('/');
+    router.push('/login');
   }
 
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold font-headline">My Account</h1>
-        <p className="text-lg text-muted-foreground mt-4">Manage your appointments and personal details.</p>
+        <p className="text-lg text-muted-foreground mt-4">Manage your profile, appointments, and favorites.</p>
       </div>
 
-      <Tabs defaultValue="appointments" className="max-w-5xl mx-auto">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="appointments">
-            <Calendar className="w-4 h-4 mr-2" />
-            Appointments
-          </TabsTrigger>
-          <TabsTrigger value="favorites">
-            <Heart className="w-4 h-4 mr-2" />
-            Favorites
-          </TabsTrigger>
-          <TabsTrigger value="profile">
-            <User className="w-4 h-4 mr-2" />
-            Profile
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="appointments">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Appointments</CardTitle>
-              <CardDescription>View your upcoming and past appointments.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Upcoming</h3>
-                <div className="p-4 border rounded-lg bg-secondary/30">
-                  <p className="font-bold">Full Balayage with Amina Diallo</p>
-                  <p className="text-sm text-muted-foreground">Tuesday, October 26th at 2:00 PM</p>
-                  <div className="mt-2">
-                    <Button variant="outline" size="sm" className="mr-2">
-                      Reschedule
-                    </Button>
-                    <Button variant="destructive" size="sm">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="p-6 space-y-4">
+          {menuItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => router.push(item.path)}
+              className="w-full text-left p-4 rounded-lg hover:bg-secondary/50 transition-colors flex items-center gap-4"
+            >
+              <div className="bg-secondary p-3 rounded-full">
+                {item.icon}
               </div>
-              <Separator />
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Past</h3>
-                <div className="p-4 border rounded-lg">
-                  <p>Signature Haircut with Chidi Okoro</p>
-                  <p className="text-sm text-muted-foreground">Completed on September 15th</p>
-                  <div className="mt-2">
-                    <Button variant="secondary" size="sm" className="mr-2">
-                      Leave a Review
-                    </Button>
-                    <Button variant="default" size="sm">
-                      Book Again
-                    </Button>
-                  </div>
-                </div>
+              <div className="flex-grow">
+                <p className="font-semibold">{item.title}</p>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="favorites">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Favorites</CardTitle>
-              <CardDescription>Your favorite stylists for quick re-booking.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid md:grid-cols-2 gap-4">
-              <StylistCard stylist={stylists[0]} />
-              <StylistCard stylist={stylists[1]} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>Update your personal information.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} disabled />
-              </div>
-              <div className="flex justify-between items-center">
-                <Button onClick={handleSaveChanges} disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-                <Button variant="ghost" onClick={handleSignOut} className="text-muted-foreground">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+      
+       <div className="max-w-2xl mx-auto mt-6">
+          <Button variant="ghost" onClick={handleSignOut} className="w-full text-muted-foreground">
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+       </div>
     </div>
   );
 }

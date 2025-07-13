@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -55,7 +56,6 @@ const removeCookie = (name: string) => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     // Check for the auth cookie on mount
@@ -80,8 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear the user and the cookie
     setUser(null);
     removeCookie('auth');
-    // Redirect to the homepage after signout
-    router.push('/');
   };
 
   const value = {

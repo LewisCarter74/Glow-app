@@ -7,13 +7,15 @@ export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth');
 
   // Define protected routes
-  const protectedRoutes = ['/book'];
+  const protectedRoutes = ['/book', '/account'];
   const publicAuthRoutes = ['/login', '/signup', '/forgot-password'];
   const { pathname } = request.nextUrl;
 
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+
   // If the user is trying to access a protected route without an auth cookie,
   // redirect them to the login page.
-  if (!authCookie && protectedRoutes.includes(pathname)) {
+  if (!authCookie && isProtectedRoute) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(loginUrl);

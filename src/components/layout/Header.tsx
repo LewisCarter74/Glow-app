@@ -30,6 +30,11 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const handleSignOut = () => {
+    signOut();
+    router.push('/login');
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
@@ -67,16 +72,17 @@ export function Header() {
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/account')}>
-                    <LayoutDashboard className="mr-2 h-4 w-4" /> Profile
+                  <DropdownMenuItem onClick={() => router.push('/account/profile')}>
+                    <User className="mr-2 h-4 w-4" /> Profile
                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => router.push('/account')}>
+                   <DropdownMenuItem onClick={() => router.push('/account/appointments')}>
                     <Calendar className="mr-2 h-4 w-4" /> Appointments
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/account')}>
-                    <Heart className="mr-2 h-4 w-4" /> Favorites
+                  <DropdownMenuItem onClick={() => router.push('/account/favourites')}>
+                    <Heart className="mr-2 h-4 w-4" /> Favourites
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={signOut}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
