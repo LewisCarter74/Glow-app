@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import Link from "next/link";
 import { stylists, portfolioImages, promotions } from "@/lib/placeholder-data";
@@ -80,8 +81,8 @@ export default function HomePage() {
             Get Inspired
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {portfolioImages.map((image) => (
-              <div key={image.src} className="group relative aspect-[3/4] overflow-hidden rounded-lg shadow-lg">
+            {portfolioImages.map((image, index) => (
+              <div key={index} className="group relative aspect-[3/4] overflow-hidden rounded-lg shadow-lg">
                 <Image
                   src={image.src}
                   alt={image.alt}
