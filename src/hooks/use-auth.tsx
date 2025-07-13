@@ -8,6 +8,7 @@ import {
   createContext,
   useContext,
   type ReactNode,
+  useCallback,
 } from 'react';
 
 // A simple mock user object
@@ -19,7 +20,7 @@ type User = {
 // The shape of the auth context
 type AuthContextType = {
   user: User | null;
-  signIn: () => void;
+  signIn: (email: string, pass: string) => Promise<void>;
   signOut: () => void;
   isLoading: boolean;
 };
@@ -57,29 +58,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for the auth cookie on mount
+  const checkUserLoggedIn = useCallback(() => {
+    setIsLoading(true);
     const authCookie = getCookie('auth');
     if (authCookie) {
-      // In a real app, you'd verify the token with your backend
-      // For this mock, we just assume the cookie means the user is logged in
       setUser({ name: 'Ada Lovelace', email: 'ada@example.com' });
+    } else {
+      setUser(null);
     }
     setIsLoading(false);
   }, []);
 
-  const signIn = () => {
+  useEffect(() => {
+    checkUserLoggedIn();
+  }, [checkUserLoggedIn]);
+
+  const signIn = async (email: string, pass: string) => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // This is where you would handle the actual login logic
     // For now, we'll just set a mock user and a cookie
-    const mockUser: User = { name: 'Ada Lovelace', email: 'ada@example.com' };
-    setUser(mockUser);
+    const mockUser: User = { name: 'Ada Lovelace', email: email };
     setCookie('auth', 'true');
+    setUser(mockUser);
   };
 
   const signOut = () => {
     // Clear the user and the cookie
-    setUser(null);
     removeCookie('auth');
+    setUser(null);
   };
 
   const value = {

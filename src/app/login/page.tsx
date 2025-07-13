@@ -14,38 +14,45 @@ import { useToast } from '@/hooks/use-toast';
 function LoginComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, user } = useAuth();
+  const { signIn, user, isLoading: isAuthLoading } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('ada@example.com');
+  const [password, setPassword] = useState('password');
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const redirectedFrom = searchParams.get('redirectedFrom');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
+    setIsSigningIn(true);
+    
     // In a real app, you'd validate credentials against a backend
     if (email && password) {
-      signIn();
-      toast({
-        title: 'Login Successful',
-        description: "Welcome back!",
-      });
-      // Redirect to the intended page or fallback to account page
-      router.push(redirectedFrom || '/account');
+      // The signIn function from useAuth will handle setting the cookie and state
+      await signIn(email, password); 
+      // The redirect will be handled by the useEffect below
     } else {
        toast({
         variant: 'destructive',
         title: 'Login Failed',
         description: 'Please check your email and password.',
       });
-      setIsLoading(false);
+      setIsSigningIn(false);
     }
   };
+
+  useEffect(() => {
+    // This effect runs when the user state changes.
+    // If the user is logged in, redirect them.
+    if (user) {
+        toast({
+            title: 'Login Successful',
+            description: "Welcome back!",
+        });
+        router.push(redirectedFrom || '/account');
+        router.refresh(); // Forces a refresh to ensure server components get the new session
+    }
+  }, [user, router, redirectedFrom, toast]);
+  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-secondary/50">
@@ -82,8 +89,8 @@ function LoginComponent() {
                   Forgot password?
                 </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
+            <Button type="submit" className="w-full" disabled={isSigningIn || isAuthLoading}>
+              {isSigningIn || isAuthLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
