@@ -10,48 +10,50 @@ const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
   
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M16.6 14.2c-.2-.1-1.5-0.7-1.7-0.8-.2-.1-.4-.1-.6.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.5-1.8-.2-.3-.1-.5 0-.6s.2-.2.4-.4c.1-.1.2-.2.3-.3.1-.1.2-.2.1-.4-.1-.1-.6-1.5-.8-2-.2-.5-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2 1 2.3c.1.1 1.5.7 3.5 2.6 2 1.9 2 1.3 2.4 1.2.4-.1 1.2-.5 1.4-1 .2-.5.2-1 .1-1s-.2-.2-.4-.3zM12.1 2.1c-5.5 0-9.9 4.4-9.9 9.9 0 1.8.5 3.5 1.4 5l-1.5 5.5 5.6-1.5c1.4.8 3.1 1.3 4.8 1.3h.1c5.5 0 9.9-4.4 9.9-9.9s-4.4-9.9-9.9-9.9zm0 18.2c-1.7 0-3.4-.4-4.9-1.3l-.4-.2-3.6.9.9-3.5-.2-.4c-.9-1.5-1.4-3.2-1.4-5.1 0-4.6 3.7-8.3 8.3-8.3 4.6 0 8.3 3.7 8.3 8.3s-3.7 8.3-8.3 8.3z"></path>
     </svg>
 );
 
 export function Footer() {
   return (
     <footer className="bg-muted/50 border-t">
-      <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-6 py-6 text-sm">
-        <div className="flex flex-col items-center md:items-start gap-2">
-            <Link href="/" className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-primary" />
-                <p className="font-bold leading-loose">
-                GlowApp
-                </p>
-            </Link>
-            <p className="text-muted-foreground">
-            © {new Date().getFullYear()} GlowApp. All rights reserved.
-            </p>
-        </div>
-        <div className="flex flex-col items-center md:items-end gap-4">
-            <div className="flex items-center gap-4">
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                    <Instagram className="h-6 w-6" />
-                </a>
-                 <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                    <TikTokIcon className="h-6 w-6" />
-                </a>
-                 <a href="https://wa.me/254757261329" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
-                    <WhatsAppIcon className="h-6 w-6" />
-                </a>
+      <div className="container mx-auto flex flex-col items-center gap-6 py-6 text-sm">
+        <div className="w-full flex flex-col md:flex-row items-center md:justify-between gap-6">
+            <div className="flex flex-col items-center md:items-start gap-2">
+                <Link href="/" className="flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                    <p className="font-bold leading-loose">
+                    GlowApp
+                    </p>
+                </Link>
             </div>
-            <Button asChild variant="outline">
-              <a href="tel:0757261329" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Call Us
-              </a>
-            </Button>
+            <div className="flex flex-col items-center md:items-end gap-4">
+                <div className="flex items-center gap-4">
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                        <Instagram className="h-6 w-6" />
+                    </a>
+                    <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                        <TikTokIcon className="h-6 w-6" />
+                    </a>
+                    <a href="https://wa.me/254757261329" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                        <WhatsAppIcon className="h-6 w-6" />
+                    </a>
+                </div>
+                <Button asChild variant="outline">
+                  <a href="tel:0757261329" className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Call Us
+                  </a>
+                </Button>
+            </div>
+        </div>
+        <div className="w-full pt-6 border-t md:border-t-0 text-center">
+            <p className="text-muted-foreground">
+                © {new Date().getFullYear()} GlowApp. All rights reserved.
+            </p>
         </div>
       </div>
     </footer>
   );
 }
-
-    
