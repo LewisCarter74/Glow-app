@@ -12,11 +12,13 @@ import { add, format } from "date-fns";
 import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
@@ -32,7 +34,11 @@ export default function BookingForm() {
     .reduce((acc, s) => acc + s.duration, 0);
 
   const handleBookingConfirmation = () => {
-    // Middleware now protects this whole page, so we know the user is logged in.
+    if (!user) {
+        router.push('/login');
+        return;
+    }
+    
     console.log({
         services: selectedServices,
         stylist: selectedStylistId,
@@ -55,11 +61,11 @@ export default function BookingForm() {
         toast({ variant: "destructive", description: "Please select a date and time."});
         return;
     }
-    if (step === 4) {
-        handleBookingConfirmation();
-        return;
+    if (step < 4) {
+      setStep((prev) => prev + 1);
+    } else {
+      handleBookingConfirmation();
     }
-    setStep((prev) => prev + 1)
   };
   const prevStep = () => setStep((prev) => prev - 1);
 
@@ -185,7 +191,7 @@ export default function BookingForm() {
             )}
             
             <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime)}>
-              {step < 4 ? 'Next' : 'Confirm Booking'} <ArrowRight className="ml-2 h-4 w-4" />
+              {step < 4 ? 'Next' : user ? 'Confirm Booking' : 'Login to Book'} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>

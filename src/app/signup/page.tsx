@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -23,26 +24,26 @@ export default function SignupPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // In a real app, you would create a new user in your database
-    if (name && email && password) {
-      signIn(); // Log the user in immediately after signup
-      toast({
-        title: 'Account Created',
-        description: "Welcome to GlowApp!",
-      });
-      router.push('/account');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Signup Failed',
-        description: 'Please fill in all fields correctly.',
-      });
+    try {
+        if (name && email && password) {
+            await signIn(email); // Log the user in immediately after signup
+            toast({
+                title: 'Account Created',
+                description: "Welcome to GlowApp!",
+            });
+            router.push('/account');
+        } else {
+            throw new Error('Please fill in all fields correctly.');
+        }
+    } catch (error) {
+         toast({
+            variant: 'destructive',
+            title: 'Signup Failed',
+            description: (error as Error).message || 'An error occurred.',
+        });
+    } finally {
+        setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (

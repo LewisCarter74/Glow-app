@@ -6,10 +6,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { Calendar, Heart, User, LogOut, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function AccountPage() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, user, isLoading } = useAuth();
   
   const menuItems = [
     {
@@ -31,10 +32,20 @@ export default function AccountPage() {
       path: '/account/favourites',
     },
   ];
+  
+  useEffect(() => {
+    if (!isLoading && !user) {
+        router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   const handleSignOut = () => {
     signOut();
-    router.push('/login');
+    router.push('/');
+  }
+
+  if (isLoading || !user) {
+    return <div className="container mx-auto px-4 py-16 text-center">Loading...</div>;
   }
 
   return (
