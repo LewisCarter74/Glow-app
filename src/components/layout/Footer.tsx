@@ -18,8 +18,8 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function Footer() {
   return (
     <footer className="bg-muted/50 border-t">
-      <div className="container mx-auto flex flex-col items-center gap-6 py-6 text-sm">
-        <div className="w-full flex flex-col md:flex-row items-center md:justify-between gap-6">
+      <div className="container mx-auto flex flex-col items-center gap-4 py-4 text-sm">
+        <div className="w-full flex flex-col md:flex-row items-center md:justify-between gap-4">
             <div className="flex flex-col items-center md:items-start gap-2">
                 <Link href="/" className="flex items-center gap-2">
                     <Sparkles className="h-6 w-6 text-primary" />
@@ -48,7 +48,7 @@ export function Footer() {
                 </Button>
             </div>
         </div>
-        <div className="w-full pt-6 border-t md:border-t-0 text-center">
+        <div className="w-full pt-4 border-t text-center">
             <p className="text-muted-foreground">
                 © {new Date().getFullYear()} GlowApp. All rights reserved.
             </p>
