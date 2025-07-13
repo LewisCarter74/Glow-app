@@ -44,6 +44,11 @@ export function Header() {
     router.push('/login');
   }
 
+  const handleNavigation = (path: string) => {
+    router.push(path);
+    setIsMenuOpen(false); // Close menu on navigation
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
@@ -79,15 +84,15 @@ export function Header() {
             <DropdownMenuContent align="end">
               {user ? (
                 <>
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuLabel>Hi, {user.name.split(' ')[0]}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/account/profile')}>
-                    <User className="mr-2 h-4 w-4" /> Profile
+                  <DropdownMenuItem onClick={() => handleNavigation('/account')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> My Account
                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={() => router.push('/account/appointments')}>
+                   <DropdownMenuItem onClick={() => handleNavigation('/account/appointments')}>
                     <Calendar className="mr-2 h-4 w-4" /> Appointments
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/account/favourites')}>
+                  <DropdownMenuItem onClick={() => handleNavigation('/account/favourites')}>
                     <Heart className="mr-2 h-4 w-4" /> Favourites
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

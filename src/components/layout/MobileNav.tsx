@@ -1,8 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { useState } from "react";
-import { LogIn, LogOut, Menu, Sparkles, User, Heart, Calendar } from "lucide-react";
+import { LogIn, LogOut, Menu, Sparkles, User, Heart, Calendar, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -65,14 +66,8 @@ export function MobileNav({ navLinks }: MobileNavProps) {
            <div className="grid gap-4">
             {user ? (
               <>
-                <button onClick={() => handleNavigation('/account/profile')} className="flex items-center text-lg font-medium transition-colors hover:text-primary">
-                  <User className="mr-2 h-5 w-5" /> Profile
-                </button>
-                 <button onClick={() => handleNavigation('/account/appointments')} className="flex items-center text-lg font-medium transition-colors hover:text-primary">
-                  <Calendar className="mr-2 h-5 w-5" /> Appointments
-                </button>
-                <button onClick={() => handleNavigation('/account/favourites')} className="flex items-center text-lg font-medium transition-colors hover:text-primary">
-                  <Heart className="mr-2 h-5 w-5" /> Favourites
+                <button onClick={() => handleNavigation('/account')} className="flex items-center text-lg font-medium transition-colors hover:text-primary">
+                  <LayoutDashboard className="mr-2 h-5 w-5" /> My Account
                 </button>
                 <button onClick={handleSignOut} className="flex items-center text-lg font-medium transition-colors hover:text-primary">
                     <LogOut className="mr-2 h-5 w-5" />
