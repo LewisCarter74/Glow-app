@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 function LoginComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, user, isLoading: isAuthLoading } = useAuth();
+  const { signIn, user } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('ada@example.com');
   const [password, setPassword] = useState('password');
@@ -25,12 +25,10 @@ function LoginComponent() {
     e.preventDefault();
     setIsSigningIn(true);
     
-    // In a real app, you'd validate credentials against a backend
-    if (email && password) {
-      // The signIn function from useAuth will handle setting the cookie and state
-      await signIn(email, password); 
-      // The redirect will be handled by the useEffect below
-    } else {
+    try {
+      await signIn(email, password);
+      // The redirect will now be handled by the useEffect below
+    } catch (error) {
        toast({
         variant: 'destructive',
         title: 'Login Failed',
@@ -49,7 +47,6 @@ function LoginComponent() {
             description: "Welcome back!",
         });
         router.push(redirectedFrom || '/account');
-        router.refresh(); // Forces a refresh to ensure server components get the new session
     }
   }, [user, router, redirectedFrom, toast]);
   
@@ -89,8 +86,8 @@ function LoginComponent() {
                   Forgot password?
                 </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={isSigningIn || isAuthLoading}>
-              {isSigningIn || isAuthLoading ? 'Signing In...' : 'Sign In'}
+            <Button type="submit" className="w-full" disabled={isSigningIn}>
+              {isSigningIn ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">

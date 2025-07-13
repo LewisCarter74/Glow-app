@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   useState,
   useEffect,
@@ -58,36 +57,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const checkUserLoggedIn = useCallback(() => {
-    setIsLoading(true);
+  // On initial load, check if the user is logged in via cookie
+  useEffect(() => {
     const authCookie = getCookie('auth');
     if (authCookie) {
       setUser({ name: 'Ada Lovelace', email: 'ada@example.com' });
-    } else {
-      setUser(null);
     }
     setIsLoading(false);
   }, []);
 
-  useEffect(() => {
-    checkUserLoggedIn();
-  }, [checkUserLoggedIn]);
-
   const signIn = async (email: string, pass: string) => {
+    setIsLoading(true);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // This is where you would handle the actual login logic
-    // For now, we'll just set a mock user and a cookie
+    // For now, we'll just set a mock user, set the cookie, and update the state
     const mockUser: User = { name: 'Ada Lovelace', email: email };
     setCookie('auth', 'true');
     setUser(mockUser);
+    setIsLoading(false);
   };
 
   const signOut = () => {
+    setIsLoading(true);
     // Clear the user and the cookie
     removeCookie('auth');
     setUser(null);
+    setIsLoading(false);
   };
 
   const value = {
