@@ -9,24 +9,26 @@ export function middleware(request: NextRequest) {
   // Routes that require authentication
   const protectedRoutes = ['/account', '/book'];
   
-  // Auth pages (login, signup)
-  const publicAuthRoutes = ['/login', 'signup', '/forgot-password'];
+  // Auth pages (login, signup) that logged-in users shouldn't access
+  const publicAuthRoutes = ['/login', '/signup', '/forgot-password'];
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isPublicAuthRoute = publicAuthRoutes.some(route => pathname.startsWith(route));
 
-  // If user is not authenticated and tries to access a protected route
+  // If user is not authenticated and tries to access a protected route, redirect to login
   if (!authCookie && isProtectedRoute) {
     const loginUrl = new URL('/login', request.url);
+    // Remember where the user was trying to go
     loginUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // If user is authenticated and tries to access a login/signup page
+  // If user is authenticated and tries to access a login/signup page, redirect to home
   if (authCookie && isPublicAuthRoute) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
+  // Otherwise, allow the request to proceed
   return NextResponse.next();
 }
 

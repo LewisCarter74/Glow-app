@@ -12,13 +12,11 @@ import { add, format } from "date-fns";
 import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const { toast } = useToast();
   const router = useRouter();
-  const { user } = useAuth();
 
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
@@ -34,18 +32,7 @@ export default function BookingForm() {
     .reduce((acc, s) => acc + s.duration, 0);
 
   const handleBookingConfirmation = () => {
-    // This check is now primarily a fallback. The middleware handles the initial block.
-    // The nextStep logic will handle redirecting unauthenticated users.
-    if (!user) {
-        toast({
-            variant: "destructive",
-            title: "Authentication Required",
-            description: "Please log in to complete your booking.",
-        });
-        router.push('/login?redirectedFrom=/book');
-        return;
-    }
-
+    // The middleware now handles all auth checks. If we are here, the user is logged in.
     console.log({
         services: selectedServices,
         stylist: selectedStylistId,
@@ -69,7 +56,6 @@ export default function BookingForm() {
         return;
     }
     if (step === 4) {
-        // The middleware already protects the /book route, so if we get here, the user is logged in.
         handleBookingConfirmation();
         return;
     }
