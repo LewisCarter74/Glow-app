@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -30,9 +31,15 @@ export function Header() {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleSignOut = () => {
     signOut();
+    router.push('/login');
+  }
+
+  const handleLoginClick = () => {
+    setIsMenuOpen(false);
     router.push('/login');
   }
 
@@ -61,7 +68,7 @@ export function Header() {
              <Link href="/book">Book Now</Link>
           </Button>
           
-          <DropdownMenu>
+          <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
                 <User className="h-5 w-5" />
@@ -90,7 +97,7 @@ export function Header() {
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem onClick={() => router.push('/login')}>
+                  <DropdownMenuItem onClick={handleLoginClick}>
                     <LogIn className="mr-2 h-4 w-4" />
                     Login
                   </DropdownMenuItem>

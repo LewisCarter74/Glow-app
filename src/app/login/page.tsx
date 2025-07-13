@@ -34,8 +34,12 @@ function LoginComponent() {
         title: 'Login Successful',
         description: "Welcome back!",
       });
-      const redirectedFrom = searchParams.get('redirectedFrom') || '/';
-      router.push(redirectedFrom);
+      const redirectedFrom = searchParams.get('redirectedFrom');
+      if (redirectedFrom) {
+        router.push(redirectedFrom);
+      } else {
+        router.push('/');
+      }
     } else {
        toast({
         variant: 'destructive',
