@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
-import { Sparkles, User, LogOut, LayoutDashboard, Calendar, LogIn } from "lucide-react";
+import { Sparkles, User, LogOut, LayoutDashboard, Calendar, LogIn, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "./MobileNav";
 import {
@@ -66,11 +67,14 @@ export function Header() {
                 <>
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/account"><LayoutDashboard className="mr-2 h-4 w-4" /> Profile</Link>
+                  <DropdownMenuItem onClick={() => router.push('/account')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Profile
                   </DropdownMenuItem>
-                   <DropdownMenuItem asChild>
-                    <Link href="/account"><Calendar className="mr-2 h-4 w-4" /> Appointments</Link>
+                   <DropdownMenuItem onClick={() => router.push('/account')}>
+                    <Calendar className="mr-2 h-4 w-4" /> Appointments
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/account')}>
+                    <Heart className="mr-2 h-4 w-4" /> Favorites
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="mr-2 h-4 w-4" />

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,11 @@ import { stylists } from '@/lib/placeholder-data';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function AccountPage() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const { toast } = useToast();
   
   const [displayName, setDisplayName] = useState('Ada Lovelace');
@@ -33,7 +36,11 @@ export default function AccountPage() {
   };
   
   const handleSignOut = () => {
-    // Simulate sign out by redirecting to home
+    signOut();
+    toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+    });
     router.push('/');
   }
 
