@@ -18,6 +18,12 @@ export default function ReferralsPage() {
     });
   };
 
+  const emailSubject = encodeURIComponent("You're Invited to GlowApp!");
+  const emailBody = encodeURIComponent(
+    `I love using GlowApp for my salon appointments and thought you would too! Use my personal link to sign up: ${referralLink}`
+  );
+  const mailtoLink = `mailto:?subject=${emailSubject}&body=${emailBody}`;
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -46,8 +52,10 @@ export default function ReferralsPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row gap-4">
-            <Button className="w-full sm:w-auto">
-                <Send className="mr-2 h-4 w-4"/> Share via Email
+            <Button asChild className="w-full sm:w-auto">
+                <a href={mailtoLink}>
+                    <Send className="mr-2 h-4 w-4"/> Share via Email
+                </a>
             </Button>
         </CardFooter>
       </Card>
