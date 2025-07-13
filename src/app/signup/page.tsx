@@ -31,7 +31,7 @@ export default function SignupPage() {
                 title: 'Account Created',
                 description: "Welcome to GlowApp!",
             });
-            router.push('/account');
+            router.push('/');
         } else {
             throw new Error('Please fill in all fields correctly.');
         }

@@ -15,13 +15,13 @@ function LoginComponent() {
   const router = useRouter();
   const { signIn, user } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('ada@example.com');
+  const [email, setEmail] = useState('kamainakadogo@gmail.com');
   const [password, setPassword] = useState('password');
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     if (user) {
-      router.push('/account');
+      router.push('/');
     }
   }, [user, router]);
 
