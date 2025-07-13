@@ -35,19 +35,15 @@ function LoginComponent() {
         description: "Welcome back!",
       });
       const redirectedFrom = searchParams.get('redirectedFrom');
-      if (redirectedFrom) {
-        router.push(redirectedFrom);
-      } else {
-        router.push('/');
-      }
+      router.push(redirectedFrom || '/');
     } else {
        toast({
         variant: 'destructive',
         title: 'Login Failed',
         description: 'Please check your email and password.',
       });
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
