@@ -21,6 +21,7 @@ import {
 } from "@/ai/flows/style-recommendation";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function AIStyleGenerator() {
   const [preferences, setPreferences] = useState("");
@@ -177,6 +178,11 @@ export default function AIStyleGenerator() {
                         {rec.description}
                       </p>
                     </CardContent>
+                    <CardFooter>
+                        <Button asChild className="w-full" variant="secondary">
+                           <Link href={`/stylists/${rec.specialistId}`}>Book a Specialist</Link>
+                        </Button>
+                    </CardFooter>
                   </Card>
                 ))}
               </div>

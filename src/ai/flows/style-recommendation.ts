@@ -1,3 +1,4 @@
+
 // 'use server';
 /**
  * @fileOverview AI-powered style recommendations for hairstyles or beauty treatments.
@@ -10,6 +11,7 @@
 'use server';
 
 import {ai} from '@/ai/genkit';
+import { stylists } from '@/lib/placeholder-data';
 import {z} from 'genkit';
 
 const StyleRecommendationInputSchema = z.object({
@@ -35,10 +37,11 @@ const StyleRecommendationOutputSchema = z.object({
         imageUrl: z
           .string()
           .describe('The data URI of the image generated for this recommendation.'),
+        specialistId: z.string().describe('The ID of the specialist recommended for this style.'),
       })
     )
     .length(3)
-    .describe('An array of exactly 3 style recommendations, each with a description and a generated image.'),
+    .describe('An array of exactly 3 style recommendations, each with a description, a generated image, and a recommended specialist.'),
 });
 
 export type StyleRecommendationOutput = z.infer<typeof StyleRecommendationOutputSchema>;
@@ -82,7 +85,7 @@ const styleRecommendationFlow = ai.defineFlow(
         throw new Error("Could not generate style recommendations");
     }
 
-    const imageGenerationPromises = output.recommendations.map(async (rec) => {
+    const imageGenerationPromises = output.recommendations.map(async (rec, index) => {
         const { media } = await ai.generate({
             model: 'googleai/gemini-2.0-flash-preview-image-generation',
             prompt: `A high-fashion, photorealistic image of the following hairstyle or beauty treatment: ${rec}`,
@@ -90,10 +93,14 @@ const styleRecommendationFlow = ai.defineFlow(
                 responseModalities: ['TEXT', 'IMAGE'],
             },
         });
+        
+        // Assign a stylist to each recommendation in a round-robin fashion
+        const specialist = stylists[index % stylists.length];
 
         return {
             description: rec,
             imageUrl: media!.url,
+            specialistId: specialist.id,
         };
     });
     
