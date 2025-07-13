@@ -23,35 +23,39 @@ function LoginComponent() {
   const redirectedFrom = searchParams.get('redirectedFrom');
 
   useEffect(() => {
+    // This effect handles the redirect AFTER the user state has been updated.
     if (user) {
-        toast({
-            title: 'Login Successful',
-            description: "Welcome back!",
-        });
-        router.push(redirectedFrom || '/account');
+        const destination = redirectedFrom || '/account';
+        router.push(destination);
     }
-  }, [user, router, redirectedFrom, toast]);
+  }, [user, router, redirectedFrom]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSigningIn(true);
     
     try {
+      // The signIn function will update the user state,
+      // which will trigger the useEffect above to handle the redirect.
       await signIn(email, password);
-      // The redirect is handled by the useEffect above
+      toast({
+            title: 'Login Successful',
+            description: "Welcome back!",
+      });
     } catch (error) {
        toast({
         variant: 'destructive',
         title: 'Login Failed',
         description: 'Please check your email and password.',
       });
-    } finally {
-        setIsSigningIn(false);
-    }
+      setIsSigningIn(false); // Only set signing in to false on error
+    } 
+    // Do not set isSigningIn to false on success, to avoid screen flicker before redirect.
   };
 
+  // While the auth state is being determined, show a loading indicator.
   if (isAuthLoading) {
-    return <div>Loading...</div>; // Or a proper spinner component
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   return (
@@ -105,9 +109,10 @@ function LoginComponent() {
   );
 }
 
+// It's crucial to wrap the component that uses `useSearchParams` in a Suspense boundary.
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
       <LoginComponent />
     </Suspense>
   )
