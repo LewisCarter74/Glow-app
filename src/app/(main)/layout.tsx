@@ -1,16 +1,5 @@
-import { Footer } from "@/components/layout/Footer";
-import { Header } from "@/components/layout/Header";
+import MainLayout from '@/app/(main)/main-layout';
 
-export default function MainLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </div>
-  );
+export default function Layout({children}: {children: React.ReactNode}) {
+  return <MainLayout>{children}</MainLayout>;
 }
