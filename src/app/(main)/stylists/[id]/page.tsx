@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { stylists, reviews } from "@/lib/placeholder-data";
@@ -6,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import ReviewCard from "@/components/ReviewCard";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export default function StylistDetailPage({ params }: { params: { id: string } }) {
   const stylist = stylists.find((s) => s.id === params.id);
@@ -39,7 +41,9 @@ export default function StylistDetailPage({ params }: { params: { id: string } }
             </CardHeader>
             <CardContent className="text-center">
               <p className="text-muted-foreground mb-6">{stylist.bio}</p>
-              <Button size="lg" className="w-full">Book with {stylist.name}</Button>
+              <Button size="lg" className="w-full" asChild>
+                <Link href="/book">Book with {stylist.name}</Link>
+              </Button>
             </CardContent>
           </Card>
         </div>

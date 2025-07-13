@@ -4,8 +4,20 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function AppointmentsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLeaveReview = () => {
+    toast({
+      title: 'Leave a Review',
+      description: 'This feature is coming soon!',
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-16">
        <div className="text-center mb-12">
@@ -24,7 +36,7 @@ export default function AppointmentsPage() {
               <p className="font-bold">Full Balayage with Amina Diallo</p>
               <p className="text-sm text-muted-foreground">Tuesday, October 26th at 2:00 PM</p>
               <div className="mt-2">
-                <Button variant="outline" size="sm" className="mr-2">
+                <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/book')}>
                   Reschedule
                 </Button>
                 <Button variant="destructive" size="sm">
@@ -40,10 +52,10 @@ export default function AppointmentsPage() {
               <p>Signature Haircut with Chidi Okoro</p>
               <p className="text-sm text-muted-foreground">Completed on September 15th</p>
               <div className="mt-2">
-                <Button variant="secondary" size="sm" className="mr-2">
+                <Button variant="secondary" size="sm" className="mr-2" onClick={handleLeaveReview}>
                   Leave a Review
                 </Button>
-                <Button variant="default" size="sm">
+                <Button variant="default" size="sm" onClick={() => router.push('/book')}>
                   Book Again
                 </Button>
               </div>
