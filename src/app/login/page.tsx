@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,20 @@ import { useToast } from '@/hooks/use-toast';
 function LoginComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const redirectedFrom = searchParams.get('redirectedFrom');
+
+  useEffect(() => {
+    // Redirect if user is already logged in and tries to access /login
+    if (user) {
+      router.push(redirectedFrom || '/');
+    }
+  }, [user, router, redirectedFrom]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,8 +43,7 @@ function LoginComponent() {
         title: 'Login Successful',
         description: "Welcome back!",
       });
-      const redirectedFrom = searchParams.get('redirectedFrom');
-      router.push(redirectedFrom || '/');
+      // We don't need to push here, the useEffect will handle it when user state changes
     } else {
        toast({
         variant: 'destructive',
