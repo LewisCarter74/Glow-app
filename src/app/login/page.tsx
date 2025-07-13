@@ -24,11 +24,11 @@ function LoginComponent() {
 
   useEffect(() => {
     // This effect handles the redirect AFTER the user state has been updated.
-    if (user) {
+    if (user && !isAuthLoading) {
         const destination = redirectedFrom || '/account';
         router.push(destination);
     }
-  }, [user, router, redirectedFrom]);
+  }, [user, isAuthLoading, router, redirectedFrom]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +54,7 @@ function LoginComponent() {
   };
 
   // While the auth state is being determined, show a loading indicator.
-  if (isAuthLoading) {
+  if (isAuthLoading && !user) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
