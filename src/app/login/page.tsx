@@ -8,40 +8,47 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { loginUser } from '@/lib/api'; // Import loginUser
 
 function LoginComponent() {
   const router = useRouter();
-  const { signIn, user } = useAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState('kamainakadogo@gmail.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
 
+  // Redirect if already logged in (check localStorage directly or a simpler flag)
   useEffect(() => {
+    const user = localStorage.getItem('user');
     if (user) {
-      router.push('/');
+      router.push('/'); // Redirect to home if user data exists in local storage
     }
-  }, [user, router]);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSigningIn(true);
     
     try {
-      await signIn(email, password);
+      if (!email || !password) {
+        throw new Error("Please enter both email and password.");
+      }
+
+      await loginUser(email, password);
       toast({
             title: 'Login Successful',
             description: "Welcome back!",
       });
-      // The useEffect will handle the redirect
+      router.push('/'); // Redirect to home on successful login
+
     } catch (error) {
        toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: 'Please check your email and password.',
+        description: (error instanceof Error) ? error.message : 'An unknown error occurred.',
       });
+    } finally {
       setIsSigningIn(false);
     }
   };

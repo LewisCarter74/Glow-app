@@ -21,7 +21,9 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
+    'http://127.0.0.1:3000',
     'https://8000-firebase-studio-1751602882361.cluster-jbb3mjctu5cbgsi6hwq6u4btwe.cloudworkstations.dev',
+    'https://8000-firebase-studio-1752348677490.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev', 
     # Add any other origins your frontend might be served from in production
 ]
 
@@ -68,7 +70,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
-        },\
+        },
     },
 ]
 
@@ -137,7 +139,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication', # For admin panel
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny', # Changed to AllowAny for public access by default
     ),
 }
 

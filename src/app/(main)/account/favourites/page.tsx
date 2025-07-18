@@ -18,8 +18,8 @@ export default function FavouritesPage() {
                 <CardDescription>A list of stylists you have marked as your favourites.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-4">
-                <StylistCard stylist={stylists[0]} />
-                <StylistCard stylist={stylists[1]} />
+                <StylistCard stylist={stylists[0]} showRemoveButton={true} />
+                <StylistCard stylist={stylists[1]} showRemoveButton={true} />
             </CardContent>
         </Card>
     </div>

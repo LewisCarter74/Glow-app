@@ -6,6 +6,7 @@ export type Stylist = {
   specialty: string;
   bio: string;
   avatarUrl: string;
+  imageUrl: string; // Added imageUrl to Stylist type
   rating: number;
   reviewCount: number;
   portfolio: string[];
@@ -37,6 +38,7 @@ export const stylists: Stylist[] = [
     specialty: 'Expert in Balayage',
     bio: 'Amina is a master colorist with over 10 years of experience, specializing in natural-looking highlights and vibrant color transformations. Her artistic vision and precision make her a client favorite.',
     avatarUrl: 'https://placehold.co/100x100',
+    imageUrl: 'https://placehold.co/600x400', // Using a different placeholder for the card image
     rating: 4.9,
     reviewCount: 124,
     portfolio: [
@@ -52,6 +54,7 @@ export const stylists: Stylist[] = [
     specialty: 'Creative Nail Art',
     bio: 'Beverly turns nails into miniature masterpieces. From minimalist chic to bold, intricate designs, she uses high-quality products to ensure your manicure is both beautiful and long-lasting.',
     avatarUrl: 'https://placehold.co/100x100',
+    imageUrl: 'https://placehold.co/600x400', // Using a different placeholder for the card image
     rating: 5.0,
     reviewCount: 98,
     portfolio: [
@@ -66,6 +69,7 @@ export const stylists: Stylist[] = [
     specialty: 'Precision Haircuts',
     bio: "With a keen eye for detail, Chidi crafts haircuts that perfectly complement your face shape and lifestyle. He believes a great haircut is the foundation of any great style.",
     avatarUrl: 'https://placehold.co/100x100',
+    imageUrl: 'https://placehold.co/600x400', // Using a different placeholder for the card image
     rating: 4.8,
     reviewCount: 85,
     portfolio: [

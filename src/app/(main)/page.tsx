@@ -1,13 +1,22 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { stylists, portfolioImages, promotions } from "@/lib/placeholder-data";
+import { portfolioImages } from "@/lib/placeholder-data"; // Keep portfolioImages for now
 import { Button } from "@/components/ui/button";
 import StylistCard from "@/components/StylistCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Wand2 } from "lucide-react";
+import { fetchStylists, fetchPromotions } from "@/lib/api"; // Import API functions
 
-export default function HomePage() {
+export default async function HomePage() {
+  const stylists = await fetchStylists();
+  const promotions = await fetchPromotions();
+
+  // Filter for featured stylists if 'is_featured' property exists
+  const featuredStylists = stylists.filter((stylist: any) => stylist.is_featured).slice(0, 3);
+  // Fallback to first 3 if no featured stylists or 'is_featured' doesn't exist
+  const displayStylists = featuredStylists.length > 0 ? featuredStylists : stylists.slice(0, 3);
+
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
@@ -41,10 +50,10 @@ export default function HomePage() {
             Current Promotions
           </h2>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {promotions.map((promo, index) => (
-              <Card key={index} className="bg-card shadow-lg border-primary/20">
+            {promotions.map((promo: any, index: number) => (
+              <Card key={promo.id || index} className="bg-card shadow-lg border-primary/20">
                 <CardHeader>
-                  <CardTitle className="text-accent">{promo.title}</CardTitle>
+                  <CardTitle className="text-accent">{promo.name || promo.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">{promo.description}</p>
@@ -67,7 +76,7 @@ export default function HomePage() {
             Meet Our Experts
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {stylists.slice(0, 3).map((stylist) => (
+            {displayStylists.map((stylist: any) => (
               <StylistCard key={stylist.id} stylist={stylist} />
             ))}
           </div>

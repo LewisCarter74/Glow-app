@@ -1,7 +1,9 @@
-import { stylists } from "@/lib/placeholder-data";
 import StylistCard from "@/components/StylistCard";
+import { fetchStylists } from "@/lib/api";
 
-export default function StylistsPage() {
+export default async function StylistsPage() {
+  const stylists = await fetchStylists();
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -11,7 +13,7 @@ export default function StylistsPage() {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {stylists.map((stylist) => (
+        {stylists.map((stylist: any) => (
           <StylistCard key={stylist.id} stylist={stylist} />
         ))}
       </div>

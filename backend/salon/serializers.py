@@ -2,24 +2,40 @@ from rest_framework import serializers
 from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist
 from django.contrib.auth import authenticate
 from django.db.models import Avg
+from django.urls import reverse_lazy
 
 class UserSerializer(serializers.ModelSerializer):
+    # Add a 'name' field for frontend compatibility
+    name = serializers.SerializerMethodField()
+    profile_image_url = serializers.SerializerMethodField() # To provide URL for frontend
+
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'role', 'is_staff', 'is_superuser', 'date_joined')
+        fields = ('id', 'email', 'first_name', 'last_name', 'phone_number', 'role', 'is_staff', 'is_superuser', 'date_joined', 'name', 'profile_image_url')
         read_only_fields = ('is_staff', 'is_superuser', 'date_joined', 'role') # role should be read-only after creation
+
+    def get_name(self, obj):
+        return obj.get_full_name() or obj.email # Return full name or email if name not set
+
+    def get_profile_image_url(self, obj):
+        if obj.profile_image and hasattr(obj.profile_image, 'url'):
+            return obj.profile_image.url
+        return None
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     name = serializers.CharField(write_only=True, required=False) # For frontend compatibility
+    profile_image = serializers.ImageField(required=False, allow_null=True) # For file upload
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'password', 'first_name', 'last_name', 'phone_number', 'role', 'name')
+        fields = ('id', 'email', 'password', 'first_name', 'last_name', 'phone_number', 'role', 'name', 'profile_image')
         extra_kwargs = {'password': {'write_only': True}, 'role': {'read_only': True}}
 
     def create(self, validated_data):
         name = validated_data.pop('name', '') # Remove 'name' if present
+        profile_image = validated_data.pop('profile_image', None)
+
         if not validated_data.get('first_name') and name:
             validated_data['first_name'] = name.split(' ')[0]
             if len(name.split(' ')) > 1:
@@ -31,7 +47,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
             phone_number=validated_data.get('phone_number', ''),
-            role='customer' # Force role to customer on registration
+            role='customer', # Force role to customer on registration
+            profile_image=profile_image
         )
         return user
 
@@ -53,9 +70,17 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 class ServiceSerializer(serializers.ModelSerializer):
+    imageUrl = serializers.SerializerMethodField() # To provide URL for frontend
+
     class Meta:
         model = Service
-        fields = '__all__'
+        fields = ('id', 'name', 'description', 'price', 'duration_minutes', 'category', 'image', 'imageUrl', 'is_active') # Added 'image' field
+        read_only_fields = ('imageUrl',)
+
+    def get_imageUrl(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return obj.image.url
+        return None # Return None or a default placeholder if no image
 
 class PortfolioImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -65,7 +90,6 @@ class PortfolioImageSerializer(serializers.ModelSerializer):
 
 class StylistSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    specialties = ServiceSerializer(many=True, read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='stylist'), write_only=True, source='user', required=False)
     
     # Fields for frontend data requirements
@@ -73,15 +97,16 @@ class StylistSerializer(serializers.ModelSerializer):
     reviewCount = serializers.SerializerMethodField()
     portfolio = serializers.SerializerMethodField() # Frontend expects a list of URLs
     imageUrl = serializers.SerializerMethodField() # Frontend expects a single image URL
+    specialties = serializers.SerializerMethodField() # Return only names of specialties
 
     class Meta:
         model = Stylist
         fields = (
             'id', 'user', 'user_id', 'bio', 'specialties', 'working_hours_start',
-            'working_hours_end', 'is_available', 'is_featured', 
+            'working_hours_end', 'is_available', 'is_featured', 'image', # Added 'image' field
             'rating', 'reviewCount', 'portfolio', 'imageUrl'
         )
-        read_only_fields = ('rating', 'reviewCount', 'portfolio', 'imageUrl')
+        read_only_fields = ('rating', 'reviewCount', 'portfolio', 'imageUrl', 'specialties')
 
     def get_rating(self, obj):
         return obj.review_set.aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0.0
@@ -94,9 +119,16 @@ class StylistSerializer(serializers.ModelSerializer):
         return [img.image_url for img in obj.portfolio_images.all()]
 
     def get_imageUrl(self, obj):
-        # Returns the first portfolio image or a default if none exists
-        first_image = obj.portfolio_images.first()
-        return first_image.image_url if first_image else "https://placehold.co/1200x800" # Placeholder
+        # Returns the stylist's main image or a default if none exists
+        if obj.image and hasattr(obj.image, 'url'):
+            return obj.image.url
+        first_portfolio_image = obj.portfolio_images.first()
+        return first_portfolio_image.image_url if first_portfolio_image else "https://placehold.co/1200x800" # Placeholder
+
+    def get_specialties(self, obj):
+        # Return a list of specialty names (strings)
+        return [service.name for service in obj.specialties.all()]
+
 
 class AppointmentSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
@@ -274,11 +306,11 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 # AI Feature Serializers
 class AIStyleRecommendationInputSerializer(serializers.Serializer):
     preferences = serializers.CharField(required=False, allow_blank=True, max_length=1000)
-    photo_data_uri = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    image = serializers.ImageField(required=False, allow_null=True)
 
     def validate(self, data):
-        if not data.get('preferences') and not data.get('photo_data_uri'):
-            raise serializers.ValidationError("Either preferences or a photo must be provided.")
+        if not data.get('preferences') and not data.get('image'):
+            raise serializers.ValidationError("Either preferences or an image must be provided.")
         return data
 
 class AIStyleRecommendationOutputSerializer(serializers.Serializer):

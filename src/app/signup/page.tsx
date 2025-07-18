@@ -9,15 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { registerUser, loginUser } from '@/lib/api'; // Import registerUser and loginUser
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(''); // Added phone_number state
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -25,24 +25,43 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-        if (name && email && password) {
-            await signIn(email); // Log the user in immediately after signup
-            toast({
-                title: 'Account Created',
-                description: "Welcome to GlowApp!",
-            });
-            router.push('/');
-        } else {
-            throw new Error('Please fill in all fields correctly.');
-        }
+      if (!name || !email || !password || !phoneNumber) { // Validate all fields
+        throw new Error('Please fill in all fields.');
+      }
+
+      // Split name into first_name and last_name
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+
+      const userData = {
+        email,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: phoneNumber,
+        name: name, // Keep for backend compatibility if it uses it
+      };
+
+      await registerUser(userData); // Register the user
+
+      // Automatically log the user in after successful registration
+      await loginUser(email, password);
+
+      toast({
+        title: 'Account Created',
+        description: "Welcome to GlowApp!",
+      });
+      router.push('/'); // Redirect to home or dashboard
+
     } catch (error) {
-         toast({
-            variant: 'destructive',
-            title: 'Signup Failed',
-            description: (error as Error).message || 'An error occurred.',
-        });
+      toast({
+        variant: 'destructive',
+        title: 'Signup Failed',
+        description: (error instanceof Error) ? error.message : 'An unknown error occurred.',
+      });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -85,6 +104,18 @@ export default function SignupPage() {
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            {/* Added Phone Number Field */}
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                placeholder="e.g., +1234567890"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>

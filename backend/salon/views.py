@@ -93,7 +93,7 @@ class PasswordResetConfirmView(views.APIView):
 class ServiceListCreateView(generics.ListCreateAPIView):
     queryset = Service.objects.filter(is_active=True)
     serializer_class = ServiceSerializer
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
 
 class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
@@ -106,7 +106,7 @@ class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
 class StylistListCreateView(generics.ListCreateAPIView):
     queryset = Stylist.objects.filter(is_available=True)
     serializer_class = StylistSerializer
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
 
 class StylistDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Stylist.objects.all()
@@ -251,7 +251,7 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 class PromotionListCreateView(generics.ListCreateAPIView):
     queryset = Promotion.objects.filter(is_active=True, valid_until__gte=timezone.now())
     serializer_class = PromotionSerializer
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Promotion.objects.all()
