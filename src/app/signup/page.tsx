@@ -10,12 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { registerUser } from '@/lib/api';
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { login } = useAuth(); // Use the useAuth hook to get the login function
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,13 +44,11 @@ export default function SignupPage() {
 
       await registerUser(userData);
 
-      await login(email, password); // Use the login function from useAuth
-
       toast({
         title: 'Account Created',
-        description: "Welcome to GlowApp!",
+        description: "Your account has been successfully created. Please log in.",
       });
-      router.push('/');
+      router.push('/login'); // Redirect to login page
 
     } catch (error) {
       toast({
@@ -121,11 +117,11 @@ export default function SignupPage() {
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">\
-            Already have an account?{' '}\
-            <Link href="/login" className="underline">\
-              Sign in\
-            </Link>\
+          <div className="mt-4 text-center text-sm">
+            Already have an account?{' '}
+            <Link href="/login" className="underline">
+              Sign in
+            </Link>
           </div>
         </CardContent>
       </Card>

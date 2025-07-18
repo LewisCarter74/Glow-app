@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 
 export default function AccountPage() {
   const router = useRouter();
-  const { signOut, user, isLoading } = useAuth();
+  const { logout, user, isLoading } = useAuth();
   
   const menuItems = [
     {
@@ -40,8 +40,8 @@ export default function AccountPage() {
   }, [user, isLoading, router]);
 
   const handleSignOut = () => {
-    signOut();
-    router.push('/');
+    logout();
+    router.push('/login'); // Redirect to login page after logout
   }
 
   if (isLoading || !user) {
