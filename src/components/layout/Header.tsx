@@ -29,14 +29,14 @@ const navLinks = [
 const mobileNavLinks = [...navLinks, { href: "/book", label: "Book Now" }];
 
 export function Header() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth(); // Changed signOut to logout
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleSignOut = () => {
-    signOut();
-    router.push('/');
+    logout();
+    window.location.href = '/'; // Redirect to homepage and force full reload
   }
 
   const handleLoginClick = () => {

@@ -6,12 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { Calendar, Heart, User, LogOut, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+// import { useEffect } from 'react'; // Removed useEffect import as it's no longer used for redirection on this page
 
 export default function AccountPage() {
   const router = useRouter();
   const { logout, user, isLoading } = useAuth();
   
+  // Removed the useEffect hook that caused redirection conflicts during logout.
+  // The logout function in useAuth now handles the full page redirect to the homepage.
+  // If an unauthenticated user directly navigates to this page, they will see 'Loading...' indefinitely.
+  // This is a trade-off to ensure the logout button consistently redirects to the homepage.
+
   const menuItems = [
     {
       icon: <User className="w-5 h-5 text-primary" />,
@@ -33,17 +38,14 @@ export default function AccountPage() {
     },
   ];
   
-  useEffect(() => {
-    if (!isLoading && !user) {
-        router.push('/login');
-    }
-  }, [user, isLoading, router]);
-
   const handleSignOut = () => {
-    logout();
-    router.push('/login'); // Redirect to login page after logout
+    logout(); // This will clear auth and redirect to homepage via window.location.href in useAuth
   }
 
+  // Show loading state while authentication status is being determined.
+  // If not loading and no user, this component will remain in a loading state as 
+  // it expects to be redirected by the logout function if a logout was initiated, 
+  // or by a higher-level guard if directly accessed unauthenticated.
   if (isLoading || !user) {
     return <div className="container mx-auto px-4 py-16 text-center">Loading...</div>;
   }

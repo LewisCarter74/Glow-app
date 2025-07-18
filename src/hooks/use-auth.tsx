@@ -51,20 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const accessToken = localStorage.getItem('accessToken');
 
         if (storedUser && accessToken) {
-          // Optionally, verify token or fetch fresh profile for validity
-          // For now, trust local storage for initial load
           setUser(JSON.parse(storedUser));
-          
-          // You might want to refresh the profile in the background to ensure token validity
-          // try {
-          //   const freshProfile = await apiFetchUserProfile();
-          //   setUser(freshProfile);
-          // } catch (refreshError) {
-          //   console.error("Failed to refresh user profile on load, logging out:", refreshError);
-          //   apiLogoutUser(); // Clear invalid session
-          //   setUser(null);
-          // }
-
         } else {
           setUser(null);
         }
@@ -95,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     apiLogoutUser(); // Clear tokens from local storage
     setUser(null); // Clear user state
+    // Force a full page reload and redirect to the homepage
+    window.location.href = '/'; 
   }, []);
 
   const isAuthenticated = !!user; // Derived state
