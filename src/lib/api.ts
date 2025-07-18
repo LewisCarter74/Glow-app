@@ -1,4 +1,4 @@
-const BASE_URL = 'https://8000-firebase-studio-1752348677490.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev/api'; // Reverted to external URL for browser access
+const BASE_URL = 'https://8000-firebase-studio-1752348677490.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev/api'; // Ensured correct external URL
 
 // Helper to get access token for authenticated requests
 const getAccessToken = () => {
