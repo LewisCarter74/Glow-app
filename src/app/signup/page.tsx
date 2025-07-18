@@ -9,15 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { registerUser, loginUser } from '@/lib/api'; // Import registerUser and loginUser
+import { registerUser } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { login } = useAuth(); // Use the useAuth hook to get the login function
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState(''); // Added phone_number state
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -25,11 +27,10 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      if (!name || !email || !password || !phoneNumber) { // Validate all fields
+      if (!name || !email || !password || !phoneNumber) {
         throw new Error('Please fill in all fields.');
       }
 
-      // Split name into first_name and last_name
       const nameParts = name.split(' ');
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ');
@@ -40,19 +41,18 @@ export default function SignupPage() {
         first_name: firstName,
         last_name: lastName,
         phone_number: phoneNumber,
-        name: name, // Keep for backend compatibility if it uses it
+        name: name,
       };
 
-      await registerUser(userData); // Register the user
+      await registerUser(userData);
 
-      // Automatically log the user in after successful registration
-      await loginUser(email, password);
+      await login(email, password); // Use the login function from useAuth
 
       toast({
         title: 'Account Created',
         description: "Welcome to GlowApp!",
       });
-      router.push('/'); // Redirect to home or dashboard
+      router.push('/');
 
     } catch (error) {
       toast({
@@ -98,15 +98,14 @@ export default function SignupPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
+              <Input
+                id="password"
+                type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {/* Added Phone Number Field */}
             <div className="space-y-2">
               <Label htmlFor="phoneNumber">Phone Number</Label>
               <Input
@@ -122,11 +121,11 @@ export default function SignupPage() {
               {isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="underline">
-              Sign in
-            </Link>
+          <div className="mt-4 text-center text-sm">\
+            Already have an account?{' '}\
+            <Link href="/login" className="underline">\
+              Sign in\
+            </Link>\
           </div>
         </CardContent>
       </Card>

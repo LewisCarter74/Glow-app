@@ -1,4 +1,4 @@
-const BASE_URL = 'https://8000-firebase-studio-1752348677490.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev/api'; // Ensured correct external URL
+const BASE_URL = 'http://127.0.0.1:8000/api'; // Changed to direct port 8000 for testing as requested
 
 // Helper to get access token for authenticated requests
 const getAccessToken = () => {

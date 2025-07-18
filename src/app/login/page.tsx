@@ -9,38 +9,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { loginUser } from '@/lib/api'; // Import loginUser
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 function LoginComponent() {
   const router = useRouter();
   const { toast } = useToast();
+  const { login, isAuthenticated, isLoading } = useAuth(); // Use login, isAuthenticated, isLoading from useAuth
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state for form submission
 
-  // Redirect if already logged in (check localStorage directly or a simpler flag)
+  // Handle redirection after auth state is determined by useAuth
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      router.push('/'); // Redirect to home if user data exists in local storage
+    if (!isLoading && isAuthenticated) {
+      router.push('/'); // Redirect to home if authenticated and not loading
     }
-  }, [router]);
+  }, [isAuthenticated, isLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSigningIn(true);
+    setIsSubmitting(true); // Set submitting state
     
     try {
       if (!email || !password) {
         throw new Error("Please enter both email and password.");
       }
 
-      await loginUser(email, password);
+      await login(email, password); // Use login from useAuth
       toast({
             title: 'Login Successful',
             description: "Welcome back!",
       });
-      router.push('/'); // Redirect to home on successful login
+      // Redirection is handled by the useEffect hook
 
     } catch (error) {
        toast({
@@ -49,10 +49,26 @@ function LoginComponent() {
         description: (error instanceof Error) ? error.message : 'An unknown error occurred.',
       });
     } finally {
-      setIsSigningIn(false);
+      setIsSubmitting(false); // Reset submitting state
     }
   };
   
+  // Show a loading state for the component while auth is being checked
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // If user is authenticated, and not loading, we redirect via useEffect
+  // So, if we reach here and isAuthenticated is true, it means useEffect hasn't run yet
+  // or is in the process of redirecting. We can render nothing or a small loader.
+  if (isAuthenticated && !isLoading) {
+    return null; // Or a simple loading spinner
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-secondary/50">
       <Card className="w-full max-w-sm mx-auto shadow-lg">
@@ -88,8 +104,8 @@ function LoginComponent() {
                   Forgot password?
                 </Link>
             </div>
-            <Button type="submit" className="w-full" disabled={isSigningIn}>
-              {isSigningIn ? 'Signing In...' : 'Sign In'}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
