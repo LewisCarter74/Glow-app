@@ -1,43 +1,35 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting
-from .forms import CustomUserCreationForm, CustomUserChangeForm # Import the custom forms
-
-# Register your models here.
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage
+from .forms import CustomUserCreationForm, CustomUserChangeForm
 
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
-    add_form = CustomUserCreationForm # Use custom form for adding users
-    form = CustomUserChangeForm # Use custom form for changing users
-    model = User # Explicitly set model
+class UserAdmin(BaseUserAdmin):
+    form = CustomUserChangeForm
+    add_form = CustomUserCreationForm
 
-    list_display = ('id', 'email', 'first_name', 'last_name', 'role', 'is_staff', 'is_active')
+    list_display = ('email', 'first_name', 'last_name', 'role', 'is_staff', 'is_active')
+    list_filter = ('role', 'is_staff', 'is_active')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('email',)
-    filter_horizontal = ()
-    list_filter = ('role', 'is_staff', 'is_active')
-    
-    # The fieldsets define which fields are shown in the admin forms
-    # They should align with the fields in CustomUserChangeForm and CustomUserCreationForm
+
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'phone_number', 'role', 'profile_image')}),
-        ('Permissions', {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
-        }),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'phone_number', 'profile_image')}),
+        ('Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
-    
-    # add_fieldsets is for the user creation form specifically
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'password', 'password2'),
+            'fields': ('email', 'first_name', 'last_name', 'phone_number', 'role', 'profile_image', 'password', 'password2'),
         }),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'phone_number', 'role', 'profile_image')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
     )
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.role == 'stylist' and not hasattr(obj, 'stylist'):
+            Stylist.objects.create(user=obj)
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
@@ -47,10 +39,10 @@ class ServiceAdmin(admin.ModelAdmin):
 
 @admin.register(Stylist)
 class StylistAdmin(admin.ModelAdmin):
-    list_display = ('user', 'is_available', 'is_featured', 'working_hours_start', 'working_hours_end')
-    list_filter = ('is_available', 'is_featured', 'specialties')
+    list_display = ('user', 'is_available', 'is_featured')
     search_fields = ('user__email', 'user__first_name', 'user__last_name')
     raw_id_fields = ('user',)
+    filter_horizontal = ('specialties',)
 
 @admin.register(Appointment)
 class AppointmentAdmin(admin.ModelAdmin):
@@ -88,3 +80,8 @@ class LoyaltyPointAdmin(admin.ModelAdmin):
 class SalonSettingAdmin(admin.ModelAdmin):
     list_display = ('key', 'value', 'description')
     search_fields = ('key',)
+
+@admin.register(PortfolioImage)
+class PortfolioImageAdmin(admin.ModelAdmin):
+    list_display = ('stylist', 'description', 'uploaded_at')
+    raw_id_fields = ('stylist',)
