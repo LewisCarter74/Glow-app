@@ -515,7 +515,7 @@ export async function deletePromotion(id: string) {
 }
 
 // Loyalty Points Endpoints
-export async function fetchLoyaltyPoints() {
+export async function getLoyaltyPoints() {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/loyalty-points/`);
     if (!response.ok) {

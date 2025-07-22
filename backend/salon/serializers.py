@@ -18,8 +18,9 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.get_full_name() or obj.email # Return full name or email if name not set
 
     def get_profile_image_url(self, obj):
+        request = self.context.get('request')
         if obj.profile_image and hasattr(obj.profile_image, 'url'):
-            return obj.profile_image.url
+            return request.build_absolute_uri(obj.profile_image.url)
         return None
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -78,15 +79,25 @@ class ServiceSerializer(serializers.ModelSerializer):
         read_only_fields = ('imageUrl',)
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         return None # Return None or a default placeholder if no image
 
 class PortfolioImageSerializer(serializers.ModelSerializer):
+    imageUrl = serializers.SerializerMethodField()
+
     class Meta:
         model = PortfolioImage
-        fields = ('id', 'image_url', 'description', 'uploaded_at')
-        read_only_fields = ('uploaded_at',)
+        fields = ('id', 'image', 'imageUrl', 'description', 'uploaded_at')
+        read_only_fields = ('uploaded_at', 'imageUrl')
+        extra_kwargs = {'image': {'write_only': True}}
+
+    def get_imageUrl(self, obj):
+        request = self.context.get('request')
+        if obj.image and hasattr(obj.image, 'url'):
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 class StylistSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
@@ -115,15 +126,19 @@ class StylistSerializer(serializers.ModelSerializer):
         return obj.review_set.count()
 
     def get_portfolio(self, obj):
+        request = self.context.get('request')
         # Returns a list of image URLs from PortfolioImage related to this stylist
-        return [img.image_url for img in obj.portfolio_images.all()]
+        return [request.build_absolute_uri(img.image.url) for img in obj.portfolio_images.all() if img.image]
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         # Returns the stylist's main image or a default if none exists
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         first_portfolio_image = obj.portfolio_images.first()
-        return first_portfolio_image.image_url if first_portfolio_image else "https://placehold.co/1200x800" # Placeholder
+        if first_portfolio_image and first_portfolio_image.image:
+            return request.build_absolute_uri(first_portfolio_image.image.url)
+        return "https://placehold.co/1200x800" # Placeholder
 
     def get_specialties(self, obj):
         # Return a list of specialty names (strings)
@@ -265,7 +280,8 @@ class FavoriteStylistSerializer(serializers.ModelSerializer):
         model = FavoriteStylist
         fields = ('id', 'customer', 'stylist', 'stylist_id', 'added_at')
         read_only_fields = ('customer', 'added_at')
-        extra_kwargs = {'stylist': {'read_only': True}}
+        extra_kwargs = {'stylist': {'read_only': True
+        }} 
 
     def validate(self, data):
         stylist_id = data.get('stylist_id')

@@ -1,23 +1,63 @@
-import { services } from "@/lib/placeholder-data";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import Link from "next/link";
+'use client';
 
-const serviceCategories = ["Hair", "Nails", "Beauty"];
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { fetchServices } from '@/lib/api';
+
+interface Service {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  duration_minutes: number;
+  category: string;
+  imageUrl: string | null; // Allow imageUrl to be null
+}
+
+const serviceCategories = ['Hair', 'Nails', 'Beauty'];
+const FALLBACK_IMAGE_URL = 'https://placehold.co/150x100';
+
 
 export default function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([]);
+
+  useEffect(() => {
+    fetchServices()
+      .then((data) => {
+        setServices(data);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch services:', error);
+      });
+  }, []);
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold font-headline">Our Services</h1>
+        <h1 className="text-4xl md:text-5xl font-bold font-headline">
+          Our Services
+        </h1>
         <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
-          Discover our curated selection of premium services, designed to make you look and feel your absolute best.
+          Discover our curated selection of premium services, designed to make
+          you look and feel your absolute best.
         </p>
       </div>
 
       <div className="max-w-4xl mx-auto">
-        <Accordion type="single" collapsible defaultValue="Hair" className="w-full">
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue="Hair"
+          className="w-full"
+        >
           {serviceCategories.map((category) => (
             <AccordionItem key={category} value={category}>
               <AccordionTrigger className="text-2xl font-headline hover:no-underline text-accent">
@@ -28,9 +68,12 @@ export default function ServicesPage() {
                   {services
                     .filter((service) => service.category === category)
                     .map((service) => (
-                      <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 rounded-lg bg-card border">
+                      <div
+                        key={service.id}
+                        className="flex flex-col md:flex-row gap-6 p-4 rounded-lg bg-card border"
+                      >
                         <Image
-                          src={service.imageUrl}
+                          src={service.imageUrl || FALLBACK_IMAGE_URL}
                           alt={service.name}
                           data-ai-hint="beauty service"
                           width={150}
@@ -39,11 +82,16 @@ export default function ServicesPage() {
                         />
                         <div className="flex-grow">
                           <h3 className="font-bold text-lg">{service.name}</h3>
-                          <p className="text-sm text-muted-foreground mt-1 mb-2">{service.description}</p>
-                           <div className="flex items-center gap-4 text-sm font-medium text-primary">
-                            <span>${service.price}{service.name.includes("Starting") ? "+" : ""}</span>
+                          <p className="text-sm text-muted-foreground mt-1 mb-2">
+                            {service.description}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm font-medium text-primary">
+                            <span>
+                              ${service.price}
+                              {service.name.includes('Starting') ? '+' : ''}
+                            </span>
                             <span>&bull;</span>
-                            <span>{service.duration} min</span>
+                            <span>{service.duration_minutes} min</span>
                           </div>
                         </div>
                         <div className="flex-shrink-0 self-center">

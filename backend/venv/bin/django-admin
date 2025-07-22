@@ -1,4 +1,4 @@
-#!/home/user/studio/backend/venv/bin/python
+#!/home/user/Glow-app/backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

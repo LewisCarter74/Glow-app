@@ -85,9 +85,9 @@ class Stylist(models.Model):
         return self.user.get_full_name() or self.user.email
 
 class PortfolioImage(models.Model): 
-    id = models.BigAutoField(primary_key=True) # Changed back to BigAutoField
+    id = models.BigAutoField(primary_key=True)
     stylist = models.ForeignKey(Stylist, on_delete=models.CASCADE, related_name='portfolio_images')
-    image_url = models.URLField(max_length=500)
+    image = models.ImageField(upload_to='portfolio_images/')
     description = models.CharField(max_length=255, blank=True, null=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
