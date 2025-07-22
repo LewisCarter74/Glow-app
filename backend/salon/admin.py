@@ -13,16 +13,19 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('email',)
 
+    # Fieldsets for the 'change' page (when you edit a user)
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal Info', {'fields': ('first_name', 'last_name', 'phone_number', 'profile_image')}),
         ('Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
+    
+    # Fieldsets for the 'add' page. The form (`CustomUserCreationForm`) will automatically add the password fields.
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'phone_number', 'role', 'profile_image', 'password', 'password2'),
+            'fields': ('email', 'first_name', 'last_name', 'phone_number', 'role', 'profile_image'),
         }),
     )
 
