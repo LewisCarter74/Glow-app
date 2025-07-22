@@ -15,25 +15,64 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from './ui/label';
 import { cn } from '@/lib/utils';
+import { createReview } from '@/lib/api'; // Import createReview
+import { useToast } from '@/hooks/use-toast';
 
 interface LeaveReviewDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (review: { rating: number; comment: string }) => void;
-  appointment: {
-    service: string;
-    stylist: string;
-  };
+  onSubmit: () => void; // Changed to a simple function to refetch appointments on success
+  appointmentId: string;
+  serviceName: string;
+  stylistName: string;
 }
 
-export default function LeaveReviewDialog({ isOpen, onClose, onSubmit, appointment }: LeaveReviewDialogProps) {
+export default function LeaveReviewDialog({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  appointmentId,
+  serviceName,
+  stylistName
+}: LeaveReviewDialogProps) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = () => {
-    if (rating > 0) {
-      onSubmit({ rating, comment });
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      toast({
+        title: "Rating required",
+        description: "Please select a star rating before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await createReview({
+        appointment_id: appointmentId,
+        rating: rating,
+        comment: comment,
+      });
+      toast({
+        title: "Review Submitted!",
+        description: "Thank you for your feedback.",
+      });
+      onSubmit(); // Call the passed onSubmit function (e.g., to refetch data)
+      onClose(); // Close the dialog
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+      toast({
+        title: "Submission Failed",
+        description: `There was an error submitting your review: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -43,7 +82,7 @@ export default function LeaveReviewDialog({ isOpen, onClose, onSubmit, appointme
         <DialogHeader>
           <DialogTitle>Leave a Review</DialogTitle>
           <DialogDescription>
-            Share your experience about your {appointment.service} with {appointment.stylist}.
+            Share your experience about your {serviceName} with {stylistName}.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -83,11 +122,11 @@ export default function LeaveReviewDialog({ isOpen, onClose, onSubmit, appointme
             </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={rating === 0}>
-            Submit Review
+          <Button onClick={handleSubmit} disabled={rating === 0 || isSubmitting}>
+            {isSubmitting ? 'Submitting...' : 'Submit Review'}
           </Button>
         </DialogFooter>
       </DialogContent>

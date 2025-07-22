@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,6 +48,23 @@ export default function BookingForm() {
     fetchServices().then(setServices);
     fetchStylists().then(setStylists);
   }, []);
+
+  const availableStylists = useMemo(() => {
+    if (selectedServices.length === 0) {
+      return stylists;
+    }
+    // Find the names of the selected services
+    const selectedServiceNames = services
+      .filter(s => selectedServices.includes(s.id))
+      .map(s => s.name);
+
+    // Filter stylists who have all of the selected services in their specialties
+    return stylists.filter(stylist => 
+      selectedServiceNames.every(serviceName => 
+        stylist.specialties.includes(serviceName)
+      )
+    );
+  }, [selectedServices, stylists, services]);
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -95,6 +113,10 @@ export default function BookingForm() {
         toast({ variant: "destructive", description: "Please select at least one service."});
         return;
     }
+    if (step === 2 && availableStylists.length > 0 && selectedStylistId === 'any') {
+      // If there are available stylists, but the user hasn't picked one, prompt them.
+      // This is optional, as 'any' is a valid choice.
+    }
     if (step === 3 && (!selectedDate || !selectedTime)) {
         toast({ variant: "destructive", description: "Please select a date and time."});
         return;
@@ -113,6 +135,8 @@ export default function BookingForm() {
         ? prev.filter(id => id !== serviceId)
         : [...prev, serviceId]
     );
+    // Reset stylist selection when services change
+    setSelectedStylistId("any");
   }
 
   return (
@@ -157,11 +181,14 @@ export default function BookingForm() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="any">Any Available</SelectItem>
-                      {stylists.map((stylist) => (
-                        <SelectItem key={stylist.id} value={stylist.id}>{stylist.user.first_name} {stylist.user.last_name} - {stylist.specialties.join(', ')}</SelectItem>
+                      {availableStylists.map((stylist) => (
+                        <SelectItem key={stylist.id} value={stylist.id}>{stylist.user.first_name} {stylist.user.last_name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {availableStylists.length === 0 && selectedServices.length > 0 && (
+                    <p className="text-sm text-destructive text-center mt-4">No single stylist offers all selected services. Please adjust your selection.</p>
+                  )}
             </div>
           )}
 
@@ -228,7 +255,7 @@ export default function BookingForm() {
               </Button>
             )}
             
-            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime)}>
+            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime) || (step === 2 && availableStylists.length === 0 && selectedServices.length > 0)}>
               {step < 4 ? 'Next' : user ? 'Confirm Booking' : 'Login to Book'} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>

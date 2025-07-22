@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -18,53 +18,89 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { fetchAppointments, deleteAppointment } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
+import { format } from 'date-fns';
 
-// Mock appointment type
-type Appointment = {
+interface Service {
   id: string;
-  service: string;
-  stylist: string;
-  date: string;
-};
+  name: string;
+}
 
-const pastAppointment: Appointment = {
-  id: 'appt1',
-  service: 'Signature Haircut',
-  stylist: 'Chidi Okoro',
-  date: 'September 15th',
-};
+interface Stylist {
+  user: {
+    first_name: string;
+    last_name: string;
+  };
+}
 
+interface Appointment {
+  id: string;
+  services: Service[];
+  stylist: Stylist;
+  appointment_date: string;
+  appointment_time: string;
+  status: 'pending' | 'approved' | 'completed' | 'cancelled';
+  can_review: boolean;
+}
 
 export default function AppointmentsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+
+  const getAppointments = useCallback(async () => {
+    if (user) {
+      try {
+        const data = await fetchAppointments();
+        setAppointments(data);
+      } catch (err) {
+        toast({ title: "Error", description: "Could not fetch appointments.", variant: "destructive" });
+      }
+    }
+  }, [user, toast]);
+
+  useEffect(() => {
+    getAppointments();
+  }, [getAppointments]);
 
   const handleLeaveReviewClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsReviewDialogOpen(true);
   };
   
-  const handleReviewSubmit = ({ rating, comment }: { rating: number; comment: string }) => {
-    console.log('Review Submitted:', { appointmentId: selectedAppointment?.id, rating, comment });
-    toast({
-      title: 'Thank you for your feedback!',
-      description: 'Your review has been submitted.',
-    });
-    setIsReviewDialogOpen(false);
+  const handleReviewSubmit = () => {
+    // This function will be called on successful submission to refetch appointments
+    getAppointments();
   }
 
-  const handleCancelAppointment = () => {
-    // In a real app, you'd perform the API call here.
-    console.log("Cancelling appointment...");
-    toast({
-      title: 'Appointment Canceled',
-      description: 'Your appointment has been successfully canceled.',
-    });
-    setIsCancelAlertOpen(false);
+  const handleCancelAppointment = async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      await deleteAppointment(selectedAppointment.id);
+      setAppointments(prev => prev.filter(a => a.id !== selectedAppointment.id));
+      toast({
+        title: 'Appointment Canceled',
+        description: 'Your appointment has been successfully canceled.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel appointment. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancelAlertOpen(false);
+    }
   }
+
+  const upcomingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'approved');
+  const pastAppointments = appointments.filter(a => a.status === 'completed' || a.status === 'cancelled');
 
   return (
     <>
@@ -81,34 +117,51 @@ export default function AppointmentsPage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <h3 className="font-semibold text-lg">Upcoming</h3>
-              <div className="p-4 border rounded-lg bg-secondary/30">
-                <p className="font-bold">Full Balayage with Amina Diallo</p>
-                <p className="text-sm text-muted-foreground">Tuesday, October 26th at 2:00 PM</p>
-                <div className="mt-2">
-                  <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/book')}>
-                    Reschedule
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={() => setIsCancelAlertOpen(true)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
+              {upcomingAppointments.length > 0 ? (
+                upcomingAppointments.map(appt => (
+                  <div key={appt.id} className="p-4 border rounded-lg bg-secondary/30">
+                    <p className="font-bold">{appt.services.map(s => s.name).join(', ')} with {appt.stylist.user.first_name}</p>
+                    <p className="text-sm text-muted-foreground">{format(new Date(appt.appointment_date), 'EEEE, MMMM do, yyyy')} at {appt.appointment_time}</p>
+                    <div className="mt-2">
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/book')}>
+                        Reschedule
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => {
+                        setSelectedAppointment(appt);
+                        setIsCancelAlertOpen(true);
+                      }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center">No upcoming appointments.</p>
+              )}
             </div>
             <Separator />
             <div className="space-y-2">
               <h3 className="font-semibold text-lg">Past</h3>
-              <div className="p-4 border rounded-lg">
-                <p>{pastAppointment.service} with {pastAppointment.stylist}</p>
-                <p className="text-sm text-muted-foreground">Completed on {pastAppointment.date}</p>
-                <div className="mt-2">
-                  <Button variant="secondary" size="sm" className="mr-2" onClick={() => handleLeaveReviewClick(pastAppointment)}>
-                    Leave a Review
-                  </Button>
-                  <Button variant="default" size="sm" onClick={() => router.push('/book')}>
-                    Book Again
-                  </Button>
-                </div>
-              </div>
+              {pastAppointments.length > 0 ? (
+                pastAppointments.map(appt => (
+                  <div key={appt.id} className="p-4 border rounded-lg">
+                    <p>{appt.services.map(s => s.name).join(', ')} with {appt.stylist.user.first_name}</p>
+                    <p className="text-sm text-muted-foreground">Completed on {format(new Date(appt.appointment_date), 'MMMM do, yyyy')}</p>
+                    <div className="mt-2">
+                      {appt.can_review && (
+                        <Button variant="secondary" size="sm" className="mr-2" onClick={() => handleLeaveReviewClick(appt)}>
+                          Leave a Review
+                        </Button>
+                      )}
+                      <Button variant="default" size="sm" onClick={() => router.push('/book')}>
+                        Book Again
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center">No past appointments.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -119,7 +172,9 @@ export default function AppointmentsPage() {
             isOpen={isReviewDialogOpen}
             onClose={() => setIsReviewDialogOpen(false)}
             onSubmit={handleReviewSubmit}
-            appointment={selectedAppointment}
+            appointmentId={selectedAppointment.id} // Pass appointment ID
+            serviceName={selectedAppointment.services.map(s => s.name).join(', ')} // Pass service names
+            stylistName={`${selectedAppointment.stylist.user.first_name} ${selectedAppointment.stylist.user.last_name}`} // Pass stylist name
         />
       )}
       
