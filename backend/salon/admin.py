@@ -21,11 +21,11 @@ class UserAdmin(BaseUserAdmin):
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
     
-    # Fieldsets for the 'add' page. The form (`CustomUserCreationForm`) will automatically add the password fields.
+    # Fieldsets for the 'add' page. Updated to match your desired fields.
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'phone_number', 'role', 'profile_image'),
+            'fields': ('email', 'role', 'password', 'profile_image'),
         }),
     )
 
