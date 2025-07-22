@@ -148,50 +148,47 @@ class StylistSerializer(serializers.ModelSerializer):
 class AppointmentSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     stylist = StylistSerializer(read_only=True)
-    service = ServiceSerializer(read_only=True)
+    services = ServiceSerializer(many=True, read_only=True)
 
-    stylist_id = serializers.UUIDField(write_only=True) # Change to UUIDField
-    service_id = serializers.UUIDField(write_only=True) # Change to UUIDField
+    stylist_id = serializers.UUIDField(write_only=True)
+    service_ids = serializers.ListField(
+        child=serializers.UUIDField(), write_only=True
+    )
     
-    can_review = serializers.SerializerMethodField() # New field for frontend
+    can_review = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
-        fields = ('id', 'customer', 'stylist', 'stylist_id', 'service', 'service_id', 'appointment_date', 'appointment_time', 'duration_minutes', 'status', 'created_at', 'updated_at', 'can_review')
-        read_only_fields = ('customer', 'created_at', 'updated_at', 'status') # status is managed by backend actions
+        fields = ('id', 'customer', 'stylist', 'stylist_id', 'services', 'service_ids', 'appointment_date', 'appointment_time', 'duration_minutes', 'status', 'created_at', 'updated_at', 'can_review')
+        read_only_fields = ('customer', 'created_at', 'updated_at', 'status')
 
     def validate(self, data):
         stylist_id = data.get('stylist_id')
-        service_id = data.get('service_id')
+        service_ids = data.get('service_ids')
         appointment_date = data.get('appointment_date')
         appointment_time = data.get('appointment_time')
         
-        # Resolve UUIDs to model instances
         try:
             stylist = Stylist.objects.get(id=stylist_id)
         except Stylist.DoesNotExist:
             raise serializers.ValidationError({"stylist_id": "Stylist not found."})
         
-        try:
-            service = Service.objects.get(id=service_id)
-        except Service.DoesNotExist:
-            raise serializers.ValidationError({"service_id": "Service not found."})
+        services = Service.objects.filter(id__in=service_ids)
+        if len(services) != len(service_ids):
+            raise serializers.ValidationError({"service_ids": "One or more services not found."})
 
         data['stylist'] = stylist
-        data['service'] = service
+        data['services'] = services
 
-        # Check if the stylist offers the selected service
-        if service not in stylist.specialties.all():
-            raise serializers.ValidationError({"service_id": "Selected stylist does not offer this service."})
+        for service in services:
+            if service not in stylist.specialties.all():
+                raise serializers.ValidationError({"service_ids": f"Stylist does not offer {service.name}."})
 
-        # Check if the stylist is available at the requested time
-        # This is a basic check, more complex logic (like working hours) should be added here
         if stylist.working_hours_start and appointment_time < stylist.working_hours_start:
             raise serializers.ValidationError({"appointment_time": "Appointment time is before stylist's working hours."})
         if stylist.working_hours_end and appointment_time > stylist.working_hours_end:
             raise serializers.ValidationError({"appointment_time": "Appointment time is after stylist's working hours."})
 
-        # Check for existing appointments (prevent double booking for the stylist)
         existing_appointments = Appointment.objects.filter(
             stylist=stylist,
             appointment_date=appointment_date,
@@ -199,7 +196,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             status__in=['pending', 'approved', 'rescheduled']
         )
         
-        if self.instance: # Exclude current instance if updating
+        if self.instance:
             existing_appointments = existing_appointments.exclude(pk=self.instance.pk)
             
         if existing_appointments.exists():
@@ -208,13 +205,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return data
 
     def get_can_review(self, obj):
-        # A review can be left if the appointment is 'completed' and no review already exists for it.
         return obj.status == 'completed' and not hasattr(obj, 'review')
 
     def create(self, validated_data):
-        # The `customer` is passed from the view's `perform_create`
-        # The `duration_minutes` is set based on the `service` in the view
-        return Appointment.objects.create(**validated_data)
+        services = validated_data.pop('services')
+        appointment = Appointment.objects.create(**validated_data)
+        appointment.services.set(services)
+        return appointment
 
 class ReviewSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()

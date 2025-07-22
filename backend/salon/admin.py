@@ -54,11 +54,16 @@ class StylistAdmin(admin.ModelAdmin):
 
 @admin.register(Appointment)
 class AppointmentAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'stylist', 'service', 'appointment_date', 'appointment_time', 'status')
-    list_filter = ('status', 'appointment_date', 'stylist', 'service')
-    search_fields = ('customer__email', 'stylist__user__email', 'service__name')
-    raw_id_fields = ('customer', 'stylist', 'service')
+    list_display = ('customer', 'stylist', 'display_services', 'appointment_date', 'appointment_time', 'status')
+    list_filter = ('status', 'appointment_date', 'stylist', 'services')
+    search_fields = ('customer__email', 'stylist__user__email', 'services__name')
+    raw_id_fields = ('customer', 'stylist')
+    filter_horizontal = ('services',)
     date_hierarchy = 'appointment_date'
+
+    def display_services(self, obj):
+        return ", ".join([service.name for service in obj.services.all()])
+    display_services.short_description = 'Services'
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):

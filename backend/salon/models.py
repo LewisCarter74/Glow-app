@@ -107,7 +107,7 @@ class Appointment(models.Model):
     id = models.BigAutoField(primary_key=True) # Changed back to BigAutoField
     customer = models.ForeignKey('User', on_delete=models.CASCADE, related_name='appointments_as_customer', limit_choices_to={'role': 'customer'})
     stylist = models.ForeignKey(Stylist, on_delete=models.SET_NULL, null=True, related_name='appointments_as_stylist')
-    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
+    services = models.ManyToManyField(Service)
     appointment_date = models.DateField()
     appointment_time = models.TimeField()
     duration_minutes = models.IntegerField(default=30)
@@ -119,7 +119,7 @@ class Appointment(models.Model):
         ordering = ['appointment_date', 'appointment_time']
 
     def __str__(self):
-        return f'{self.customer.email} - {self.service.name} with {self.stylist.user.get_full_name() or self.stylist.user.email} on {self.appointment_date} at {self.appointment_time}'
+        return f'{self.customer.email} with {self.stylist.user.get_full_name() or self.stylist.user.email} on {self.appointment_date} at {self.appointment_time}'
 
 class Review(models.Model):
     id = models.BigAutoField(primary_key=True) # Changed back to BigAutoField

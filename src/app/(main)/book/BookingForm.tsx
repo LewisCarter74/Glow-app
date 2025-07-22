@@ -1,8 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
-import { services, stylists } from "@/lib/placeholder-data";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +11,23 @@ import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } fr
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { createAppointment, fetchServices, fetchStylists } from "@/lib/api";
+
+interface Service {
+    id: string;
+    name: string;
+    price: number;
+    duration_minutes: number;
+}
+
+interface Stylist {
+    id: string;
+    user: {
+        first_name: string;
+        last_name: string;
+    };
+    specialties: string[];
+}
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -20,10 +35,18 @@ export default function BookingForm() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const [services, setServices] = useState<Service[]>([]);
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
+
+  useEffect(() => {
+    fetchServices().then(setServices);
+    fetchStylists().then(setStylists);
+  }, []);
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -31,25 +54,40 @@ export default function BookingForm() {
 
   const totalDuration = services
     .filter(s => selectedServices.includes(s.id))
-    .reduce((acc, s) => acc + s.duration, 0);
+    .reduce((acc, s) => acc + s.duration_minutes, 0);
 
-  const handleBookingConfirmation = () => {
+  const handleBookingConfirmation = async () => {
     if (!user) {
         router.push('/login');
         return;
     }
+
+    if (!selectedDate || !selectedTime || selectedServices.length === 0 || !selectedStylistId) {
+        toast({ variant: "destructive", description: "Please fill out all fields." });
+        return;
+    }
     
-    console.log({
-        services: selectedServices,
-        stylist: selectedStylistId,
-        date: selectedDate,
-        time: selectedTime,
-    });
-    toast({
-        title: "Booking Confirmed!",
-        description: "Your appointment has been successfully booked.",
-    })
-    router.push('/account/appointments');
+    try {
+        await createAppointment({
+            service_ids: selectedServices, // Pass the array of selected service IDs
+            stylist_id: selectedStylistId,
+            appointment_date: format(selectedDate, "yyyy-MM-dd"),
+            appointment_time: selectedTime,
+        });
+
+        toast({
+            title: "Booking Confirmed!",
+            description: "Your appointment has been successfully booked.",
+        })
+        router.push('/account/appointments');
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        toast({
+            title: "Booking Failed",
+            description: `There was an error booking your appointment: ${errorMessage}`,
+            variant: "destructive"
+        })
+    }
   }
 
   const nextStep = () => {
@@ -120,7 +158,7 @@ export default function BookingForm() {
                     <SelectContent>
                       <SelectItem value="any">Any Available</SelectItem>
                       {stylists.map((stylist) => (
-                        <SelectItem key={stylist.id} value={stylist.id}>{stylist.name} - {stylist.specialty}</SelectItem>
+                        <SelectItem key={stylist.id} value={stylist.id}>{stylist.user.first_name} {stylist.user.last_name} - {stylist.specialties.join(', ')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -165,7 +203,7 @@ export default function BookingForm() {
                         </div>
                          <div>
                             <h4 className="font-semibold">Stylist</h4>
-                            <p>{stylists.find(s => s.id === selectedStylistId)?.name || 'Any Available'}</p>
+                            <p>{stylists.find(s => s.id === selectedStylistId)?.user.first_name || 'Any Available'}</p>
                         </div>
                         <div>
                             <h4 className="font-semibold">Date & Time</h4>

@@ -147,11 +147,11 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         if customer.role != 'customer':
             raise serializers.ValidationError("Only customers can create appointments.")
 
-        service = serializer.validated_data['service']
+        service_ids = serializer.validated_data['service_ids']
+        services = Service.objects.filter(id__in=service_ids)
+        total_duration = services.aggregate(Sum('duration_minutes'))['duration_minutes__sum'] or 0
         
-        # We pass the customer directly to the serializer's save method.
-        # The validation logic is now correctly handled within the serializer itself.
-        serializer.save(customer=customer, duration_minutes=service.duration_minutes, status='pending')
+        serializer.save(customer=customer, duration_minutes=total_duration, status='pending')
 
 class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Appointment.objects.all()

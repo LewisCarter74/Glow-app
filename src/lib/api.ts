@@ -341,7 +341,12 @@ export async function fetchAppointments() {
   }
 }
 
-export async function createAppointment(appointmentData: object) {
+export async function createAppointment(appointmentData: {
+  service_ids: string[];
+  stylist_id: string;
+  appointment_date: string;
+  appointment_time: string;
+}) {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/appointments/`, {
       method: 'POST',
