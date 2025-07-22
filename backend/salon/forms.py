@@ -2,12 +2,19 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import User
 
-class CustomUserCreationForm(UserCreationForm):
-    # Override the password2 field to remove it for a simpler creation form
-    password2 = None
-    class Meta(UserCreationForm.Meta):
+class CustomUserCreationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput)
+
+    class Meta:
         model = User
         fields = ('email', 'role', 'password', 'profile_image')
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        if commit:
+            user.save()
+        return user
 
 class CustomUserChangeForm(forms.ModelForm):
     class Meta:
