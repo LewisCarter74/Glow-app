@@ -123,7 +123,7 @@ export default function AppointmentsPage() {
                     <p className="font-bold">{appt.services.map(s => s.name).join(', ')} with {appt.stylist.user.first_name}</p>
                     <p className="text-sm text-muted-foreground">{format(new Date(appt.appointment_date), 'EEEE, MMMM do, yyyy')} at {appt.appointment_time}</p>
                     <div className="mt-2">
-                      <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/book')}>
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/booking')}>
                         Reschedule
                       </Button>
                       <Button variant="destructive" size="sm" onClick={() => {
@@ -153,7 +153,7 @@ export default function AppointmentsPage() {
                           Leave a Review
                         </Button>
                       )}
-                      <Button variant="default" size="sm" onClick={() => router.push('/book')}>
+                      <Button variant="default" size="sm" onClick={() => router.push('/booking')}>
                         Book Again
                       </Button>
                     </div>

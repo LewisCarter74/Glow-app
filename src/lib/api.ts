@@ -46,6 +46,11 @@ interface Service {
     imageUrl: string | null;
 }
 
+interface Category {
+    id: string;
+    name: string;
+}
+
 interface Stylist {
     id: string;
     user: {
@@ -63,6 +68,20 @@ interface AppointmentData {
 }
 
 // --- UPDATED API FUNCTIONS ---
+
+export async function fetchCategories(): Promise<Category[]> {
+  try {
+    const response = await fetch(`${BASE_URL}/categories/`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: Category[] = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+}
 
 export async function fetchStylists(category?: string) {
   try {

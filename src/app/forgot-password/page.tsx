@@ -1,67 +1,66 @@
+
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft } from 'lucide-react';
+import { requestPasswordReset } from '@/lib/api';
+import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
-  const { toast } = useToast();
   const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const { toast } = useToast();
 
-  const handleResetRequest = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    toast({
-      title: 'Password Reset Link Sent',
-      description: `If an account exists for ${email}, a reset link has been sent.`,
-    });
-    
-    setIsLoading(false);
-    router.push('/login');
+    try {
+      await requestPasswordReset(email);
+      setIsSubmitted(true);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Could not send password reset email. Please check the email address and try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary/50">
-      <Card className="w-full max-w-sm mx-auto shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Forgot Password</CardTitle>
-          <CardDescription>Enter your email to receive a password reset link.</CardDescription>
+    <div className="container mx-auto flex items-center justify-center min-h-screen">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Forgot Your Password?</CardTitle>
+          <CardDescription>
+            {isSubmitted
+              ? "If an account with that email exists, a password reset link has been sent."
+              : "Enter your email address and we'll send you a link to reset your password."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleResetRequest} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+          {isSubmitted ? (
+            <div className="text-center">
+              <p>Please check your inbox (and spam folder) for the reset link.</p>
+                <Button asChild className="mt-4">
+                    <Link href="/login">Back to Login</Link>
+                </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
               <Input
-                id="email"
                 type="email"
-                placeholder="ada@example.com"
-                required
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            <Link href="/login" className="underline flex items-center justify-center">
-                <ArrowLeft className="h-4 w-4 mr-1"/>
-                Back to login
-            </Link>
-          </div>
+              <Button type="submit" className="w-full">
+                Send Reset Link
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

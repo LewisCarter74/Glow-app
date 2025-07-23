@@ -11,8 +11,9 @@ import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet, Spa
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { createAppointment, fetchServices, fetchStylists } from "@/lib/api";
+import { createAppointment, fetchServices, fetchStylists, fetchCategories } from "@/lib/api";
 import { Input } from "@/components/ui/input"; 
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface Service {
     id: string;
@@ -33,8 +34,10 @@ interface Stylist {
     specialties: string[]; 
 }
 
-// Define the categories
-const CATEGORIES = ["Hair", "Nails", "Beauty"];
+interface Category {
+  id: string;
+  name: string;
+}
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -42,6 +45,7 @@ export default function BookingForm() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
 
@@ -50,16 +54,36 @@ export default function BookingForm() {
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  useEffect(() => {
+    const getCategories = async () => {
+      try {
+        const data = await fetchCategories();
+        setCategories(data);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        toast({
+          variant: "destructive",
+          description: "Failed to load categories."
+        });
+      }
+    };
+    getCategories();
+  }, [toast]);
 
   useEffect(() => {
     const getServicesAndStylists = async () => {
       if (!selectedCategory) return;
       try {
-        const fetchedServices = await fetchServices({ category: selectedCategory });
+        const fetchedServices = await fetchServices({ category: selectedCategory, search: debouncedSearchTerm });
         setServices(fetchedServices);
 
-        const fetchedStylists = await fetchStylists(selectedCategory);
-        setStylists(fetchedStylists);
+        if (debouncedSearchTerm.length === 0) {
+            const fetchedStylists = await fetchStylists(selectedCategory);
+            setStylists(fetchedStylists);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -70,7 +94,7 @@ export default function BookingForm() {
     };
 
     getServicesAndStylists();
-  }, [selectedCategory, toast]);
+  }, [selectedCategory, debouncedSearchTerm, toast]);
 
   const availableStylists = useMemo(() => {
     if (selectedServices.length === 0) {
@@ -80,11 +104,14 @@ export default function BookingForm() {
       .filter(s => selectedServices.includes(s.id))
       .map(s => s.category.toLowerCase().trim())
     );
-    return stylists.filter(stylist => 
-      Array.from(selectedServiceCategories).every(serviceCat => 
-        stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(serviceCat)
-      )
-    );
+    return stylists.filter(stylist => {
+        if (!stylist.specialties || !Array.isArray(stylist.specialties)) {
+            return false;
+        }
+        return Array.from(selectedServiceCategories).every(serviceCat => 
+            stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(serviceCat)
+        )
+    });
   }, [selectedServices, stylists, services]);
 
   const totalCost = services
@@ -178,9 +205,9 @@ export default function BookingForm() {
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><Sparkles/> Select a Category</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {CATEGORIES.map(category => (
-                  <Button key={category} variant={selectedCategory === category ? "default" : "outline"} onClick={() => setSelectedCategory(category)} className="p-8 text-lg">
-                    {category}
+                {categories.map(category => (
+                  <Button key={category.id} variant={selectedCategory === category.name ? "default" : "outline"} onClick={() => setSelectedCategory(category.name)} className="p-8 text-lg">
+                    {category.name}
                   </Button>
                 ))}
               </div>
@@ -189,7 +216,15 @@ export default function BookingForm() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
+                <Input 
+                    placeholder="Search for a service..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-xs"
+                />
+              </div>
               {services.length > 0 ? (
                 services.map((service) => (
                     <div key={service.id} className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
@@ -205,7 +240,7 @@ export default function BookingForm() {
                     </div>
                 ))
               ) : (
-                <p className="text-center text-muted-foreground">No services available for this category.</p>
+                <p className="text-center text-muted-foreground pt-4">No services found. Try a different search or category.</p>
               )}
             </div>
           )}
