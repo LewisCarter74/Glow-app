@@ -68,9 +68,8 @@ class Service(models.Model):
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_minutes = models.IntegerField(default=30, validators=[MinValueValidator(1)])
-    # Temporarily add old_category_name for data migration
-    old_category_name = models.CharField(max_length=255, null=True, blank=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='services') # Ensure null=True, blank=True
+    # Removed old_category_name and set category to non-nullable (assuming all services must have a category)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='services') 
     image = models.ImageField(upload_to='service_images/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
