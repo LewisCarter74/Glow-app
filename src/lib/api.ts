@@ -621,3 +621,36 @@ export async function deleteSalonSetting(id: string) {
     throw error;
   }
 }
+
+export async function testCreateAppointment() {
+  try {
+    const testAppointmentData = {
+      service_ids: ["service1", "service2"], // Replace with actual service IDs
+      stylist_id: "stylist1", // Replace with an actual stylist ID
+      appointment_date: "2024-10-27",
+      appointment_time: "10:00",
+    };
+
+    const createdAppointment = await createAppointment(testAppointmentData);
+    console.log("Test appointment created:", createdAppointment);
+
+    const appointments = await fetchAppointments();
+    console.log("All appointments:", appointments);
+
+    // Check if the created appointment is in the list of appointments
+    const appointmentExists = appointments.some(
+      (appointment: { stylist_id: string; appointment_date: string; appointment_time: string; }) =>
+        appointment.stylist_id === testAppointmentData.stylist_id &&
+        appointment.appointment_date === testAppointmentData.appointment_date &&
+        appointment.appointment_time === testAppointmentData.appointment_time
+    );
+
+    if (appointmentExists) {
+      console.log("Test passed: Appointment created successfully!");
+    } else {
+      console.error("Test failed: Appointment not found in the list of appointments.");
+    }
+  } catch (error) {
+    console.error("Test failed with error:", error);
+  }
+}

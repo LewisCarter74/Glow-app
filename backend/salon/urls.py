@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, UserProfileView, PasswordResetView, PasswordResetConfirmView,
     ServiceListCreateView, ServiceDetailView,
-    StylistListCreateView, StylistDetailView,
+    StylistListCreateView, StylistDetailView, AvailableStylistsView,
     AppointmentListCreateView, AppointmentDetailView,
     ReviewListCreateView, ReviewDetailView,
     PromotionListCreateView, PromotionDetailView,
@@ -26,6 +26,7 @@ urlpatterns = [
     # Stylists
     path('stylists/', StylistListCreateView.as_view(), name='stylist-list-create'),
     path('stylists/<int:pk>/', StylistDetailView.as_view(), name='stylist-detail'),
+    path('stylists/available/', AvailableStylistsView.as_view(), name='available-stylists'),
 
     # Appointments
     path('appointments/', AppointmentListCreateView.as_view(), name='appointment-list-create'),
