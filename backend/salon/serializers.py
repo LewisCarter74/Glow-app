@@ -1,8 +1,10 @@
 from rest_framework import serializers
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category # Import Category
 from django.contrib.auth import authenticate
-from django.db.models import Avg
+from django.db.models import Avg, Q # Import Q object
 from django.urls import reverse_lazy
+from django.utils import timezone
+from datetime import timedelta
 
 class UserSerializer(serializers.ModelSerializer):
     # Add a 'name' field for frontend compatibility
@@ -70,13 +72,21 @@ class LoginSerializer(serializers.Serializer):
         data['user'] = user
         return data
 
+# New Category Serializer
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'name')
+
 class ServiceSerializer(serializers.ModelSerializer):
     imageUrl = serializers.SerializerMethodField() # To provide URL for frontend
+    category_name = serializers.CharField(source='category.name', read_only=True) # Add category name
 
     class Meta:
         model = Service
-        fields = ('id', 'name', 'description', 'price', 'duration_minutes', 'category', 'image', 'imageUrl', 'is_active') # Added 'image' field
-        read_only_fields = ('imageUrl',)
+        fields = ('id', 'name', 'description', 'price', 'duration_minutes', 'category', 'category_name', 'image', 'imageUrl', 'is_active') # Added 'category_name'
+        read_only_fields = ('imageUrl', 'category_name')
+        extra_kwargs = {'category': {'write_only': True}} # Make category write_only
 
     def get_imageUrl(self, obj):
         request = self.context.get('request')
@@ -108,16 +118,26 @@ class StylistSerializer(serializers.ModelSerializer):
     reviewCount = serializers.SerializerMethodField()
     portfolio = serializers.SerializerMethodField() # Frontend expects a list of URLs
     imageUrl = serializers.SerializerMethodField() # Frontend expects a single image URL
-    specialties = serializers.SerializerMethodField() # Return only names of specialties
+    
+    # Change specialties to read/write category names instead of Service objects
+    specialties = serializers.SlugRelatedField(
+        many=True,
+        queryset=Category.objects.all(),
+        slug_field='name', # Use the 'name' field of Category for representation and lookup
+        required=False,
+        allow_empty=True
+    )
 
     class Meta:
         model = Stylist
         fields = (
             'id', 'user', 'user_id', 'bio', 'specialties', 'working_hours_start',
-            'working_hours_end', 'is_available', 'is_featured', 'image', # Added 'image' field
+            'working_hours_end', 'is_available', 'is_featured', 'image', 
             'rating', 'reviewCount', 'portfolio', 'imageUrl'
         )
-        read_only_fields = ('rating', 'reviewCount', 'portfolio', 'imageUrl', 'specialties')
+        read_only_fields = ('user', 'rating', 'reviewCount', 'portfolio', 'imageUrl') # 'specialties' is no longer read_only
+        extra_kwargs = {'image': {'write_only': True}} # Make image write only for updates via nested serializer if needed
+
 
     def get_rating(self, obj):
         return obj.review_set.aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0.0
@@ -140,19 +160,18 @@ class StylistSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(first_portfolio_image.image.url)
         return "https://placehold.co/1200x800" # Placeholder
 
-    def get_specialties(self, obj):
-        # Return a list of specialty names (strings)
-        return [service.name for service in obj.specialties.all()]
-
+    # No get_specialties method needed anymore as SlugRelatedField handles it directly
 
 class AppointmentSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     stylist = StylistSerializer(read_only=True)
     services = ServiceSerializer(many=True, read_only=True)
 
-    stylist_id = serializers.UUIDField(write_only=True)
+    # Use IntegerField for IDs as models use BigAutoField (simple string IDs)
+    # stylist_id is now optional for auto-assignment
+    stylist_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     service_ids = serializers.ListField(
-        child=serializers.UUIDField(), write_only=True
+        child=serializers.IntegerField(), write_only=True
     )
     
     can_review = serializers.SerializerMethodField()
@@ -160,48 +179,168 @@ class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appointment
         fields = ('id', 'customer', 'stylist', 'stylist_id', 'services', 'service_ids', 'appointment_date', 'appointment_time', 'duration_minutes', 'status', 'created_at', 'updated_at', 'can_review')
-        read_only_fields = ('customer', 'created_at', 'updated_at', 'status')
+        read_only_fields = ('customer', 'created_at', 'updated_at', 'status', 'stylist', 'duration_minutes') # Make stylist and duration_minutes read-only as they will be determined in validate
 
     def validate(self, data):
+        stylist = None
         stylist_id = data.get('stylist_id')
         service_ids = data.get('service_ids')
         appointment_date = data.get('appointment_date')
         appointment_time = data.get('appointment_time')
-        
-        try:
-            stylist = Stylist.objects.get(id=stylist_id)
-        except Stylist.DoesNotExist:
-            raise serializers.ValidationError({"stylist_id": "Stylist not found."})
+
+        if not service_ids:
+             raise serializers.ValidationError({"service_ids": "At least one service must be selected."})
         
         services = Service.objects.filter(id__in=service_ids)
         if len(services) != len(service_ids):
             raise serializers.ValidationError({"service_ids": "One or more services not found."})
 
-        data['stylist'] = stylist
         data['services'] = services
+        total_duration = sum(s.duration_minutes for s in services)
+        data['duration_minutes'] = total_duration # Set duration_minutes here
 
-        for service in services:
-            if service not in stylist.specialties.all():
-                raise serializers.ValidationError({"service_ids": f"Stylist does not offer {service.name}."})
+        # Determine required categories based on selected services
+        required_categories = set(service.category for service in services)
 
-        if stylist.working_hours_start and appointment_time < stylist.working_hours_start:
-            raise serializers.ValidationError({"appointment_time": "Appointment time is before stylist's working hours."})
-        if stylist.working_hours_end and appointment_time > stylist.working_hours_end:
-            raise serializers.ValidationError({"appointment_time": "Appointment time is after stylist's working hours."})
+        if stylist_id is not None:
+            # User has a preferred stylist
+            try:
+                stylist = Stylist.objects.get(id=stylist_id)
+            except Stylist.DoesNotExist:
+                raise serializers.ValidationError({"stylist_id": "Preferred stylist not found."})
 
-        existing_appointments = Appointment.objects.filter(
-            stylist=stylist,
-            appointment_date=appointment_date,
-            appointment_time=appointment_time,
-            status__in=['pending', 'approved', 'rescheduled']
-        )
-        
-        if self.instance:
-            existing_appointments = existing_appointments.exclude(pk=self.instance.pk)
+            # Check if preferred stylist is available and specializes in required categories
+            if not stylist.is_available:
+                 raise serializers.ValidationError({"stylist_id": "Preferred stylist is not available."})
+
+            stylist_categories = set(category for category in stylist.specialties.all())
+            if not required_categories.issubset(stylist_categories):
+                 missing_categories = required_categories - stylist_categories
+                 raise serializers.ValidationError({"stylist_id": f"Preferred stylist does not specialize in category(ies): {', '.join(c.name for c in missing_categories)}."})
+
+            # Check for time conflicts with preferred stylist
+            end_time = (datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time()
+            conflicting_appointments = Appointment.objects.filter(
+                stylist=stylist,
+                appointment_date=appointment_date,
+                status__in=['pending', 'approved', 'rescheduled']
+            ).filter(
+                Q(appointment_time__lt=end_time, appointment_time__gte=appointment_time) |
+                Q(appointment_time__lt=end_time, appointment_time__gte=appointment_time)
+            )
+             # Refined conflict check:
+            conflicting_appointments = Appointment.objects.filter(
+                stylist=stylist,
+                appointment_date=appointment_date,
+                status__in=['pending', 'approved', 'rescheduled']
+            ).filter(
+                Q(appointment_time__lt=end_time) & 
+                Q(appointment_time__gte=appointment_time) | 
+                Q(appointment_time__lt=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=self.instance.duration_minutes if self.instance else 0)).time()) & 
+                Q(appointment_time__gte=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time())
+            )
             
-        if existing_appointments.exists():
-            raise serializers.ValidationError({"detail": "This time slot is not available for the selected stylist."})
-            
+            # Corrected conflict check logic to be more robust
+            start_datetime = datetime.combine(appointment_date, appointment_time)
+            end_datetime = start_datetime + timedelta(minutes=total_duration)
+
+            conflicting_appointments = Appointment.objects.filter(
+                stylist=stylist,
+                appointment_date=appointment_date,
+                status__in=['pending', 'approved', 'rescheduled']
+            ).filter(
+                Q(appointment_time__lt=end_datetime.time()) & 
+                Q(end_time__gt=appointment_time) # Assuming you add an end_time field to Appointment model
+            )
+
+            # Adjusting conflict check without an explicit end_time field in the model
+            # This assumes appointment_time is the start time and duration_minutes determines the end
+            # Need to compare time ranges. Appointment A (start_A, duration_A), Appointment B (start_B, duration_B)
+            # Conflict if (start_A < end_B) and (end_A > start_B)
+            # end_A = start_A + duration_A, end_B = start_B + duration_B
+
+            conflicting_appointments = Appointment.objects.filter(
+                stylist=stylist,
+                appointment_date=appointment_date,
+                status__in=['pending', 'approved', 'rescheduled']
+            ).annotate(
+                appointment_end_time=ExpressionWrapper(
+                    F('appointment_time') + Expression('INTERVAL ' || Cast(F('duration_minutes'), TextField()) || ' MINUTE'),
+                    output_field=models.TimeField()
+                )
+            ).filter(
+                 # Check for overlap: (start1 < end2) and (end1 > start2)
+                Q(appointment_time__lt=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time()) &
+                Q(appointment_end_time__gt=appointment_time)
+            )
+
+            # Exclude the current instance if it's an update
+            if self.instance:
+                conflicting_appointments = conflicting_appointments.exclude(pk=self.instance.pk)
+
+            if conflicting_appointments.exists():
+                raise serializers.ValidationError({"detail": "This time slot conflicts with an existing appointment for the preferred stylist."})
+
+            data['stylist'] = stylist # Assign the preferred stylist
+
+        else:
+            # No preferred stylist, auto-assign
+            # Find stylists who specialize in ALL required categories and are available
+            available_stylists = Stylist.objects.filter(
+                is_available=True,
+                specialties__in=required_categories # This checks if the stylist has AT LEAST ONE of the required categories
+            ).annotate(num_specialties=Count('specialties')).filter(num_specialties=len(required_categories)) # Ensure they have ALL required categories
+
+            if not available_stylists.exists():
+                 raise serializers.ValidationError({"detail": "No stylist available for the selected services' categories."})
+
+            # Further filter available stylists by time slot availability
+            potential_stylists = []
+            for s in available_stylists:
+                # Check working hours
+                if s.working_hours_start and appointment_time < s.working_hours_start:
+                    continue
+                if s.working_hours_end and appointment_time > s.working_hours_end:
+                    continue
+
+                # Check for time conflicts
+                # Need to compare time ranges. Appointment A (start_A, duration_A), Appointment B (start_B, duration_B)
+                # Conflict if (start_A < end_B) and (end_A > start_B)
+                # end_A = start_A + duration_A, end_B = start_B + duration_B
+
+                start_datetime = datetime.combine(appointment_date, appointment_time)
+                end_datetime = start_datetime + timedelta(minutes=total_duration)
+
+                conflicting_appointments = Appointment.objects.filter(
+                    stylist=s,
+                    appointment_date=appointment_date,
+                    status__in=['pending', 'approved', 'rescheduled']
+                 ).annotate(
+                    appointment_end_time=ExpressionWrapper(
+                        F('appointment_time') + Expression('INTERVAL ' || Cast(F('duration_minutes'), TextField()) || ' MINUTE'),
+                        output_field=models.TimeField()
+                    )
+                ).filter(
+                    Q(appointment_time__lt=end_datetime.time()) &
+                    Q(appointment_end_time__gt=appointment_time)
+                )
+                
+                if not conflicting_appointments.exists():
+                    potential_stylists.append(s)
+
+            if not potential_stylists:
+                raise serializers.ValidationError({"detail": "No stylist available at the requested time for the selected services."})
+
+            # Simple auto-assignment: pick the first available stylist
+            assigned_stylist = potential_stylists[0]
+            data['stylist'] = assigned_stylist
+
+        # Additional validation (e.g., appointment in the future)
+        now = timezone.now()
+        appointment_datetime = datetime.combine(appointment_date, appointment_time)
+        if appointment_datetime < now:
+            raise serializers.ValidationError({"appointment_date": "Appointment must be in the future."})
+
         return data
 
     def get_can_review(self, obj):
@@ -216,10 +355,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     stylist_name = serializers.SerializerMethodField()
-    # appointment = AppointmentSerializer(read_only=True) # Keep for full representation if needed
 
-    appointment_id = serializers.UUIDField(write_only=True)
-    # customer_id and stylist_id are not needed for write operations if taken from authenticated user and appointment
+    # Use IntegerField for IDs
+    appointment_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = Review
@@ -271,7 +409,7 @@ class LoyaltyPointSerializer(serializers.ModelSerializer):
 class FavoriteStylistSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
     stylist = StylistSerializer(read_only=True) # Return full stylist data for convenience
-    stylist_id = serializers.UUIDField(write_only=True) # For adding/removing by ID
+    stylist_id = serializers.IntegerField(write_only=True) # For adding/removing by ID
 
     class Meta:
         model = FavoriteStylist
@@ -329,7 +467,7 @@ class AIStyleRecommendationInputSerializer(serializers.Serializer):
 class AIStyleRecommendationOutputSerializer(serializers.Serializer):
     description = serializers.CharField()
     imageUrl = serializers.URLField()
-    specialistId = serializers.UUIDField(required=False, allow_null=True) # Link to a Stylist ID
+    specialistId = serializers.IntegerField(required=False, allow_null=True) # Changed to IntegerField
 
 class AIRecommendationResponseSerializer(serializers.Serializer):
     recommendations = AIStyleRecommendationOutputSerializer(many=True)

@@ -9,20 +9,20 @@ import {
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState }'react';
 import { fetchServices } from '@/lib/api';
 
 interface Service {
   id: string;
   name: string;
   description: string;
-  price: number; // Changed from string to number
+  price: number;
   duration_minutes: number;
   category: string;
-  imageUrl: string | null;
+  imageUrl: string | null; 
 }
 
-const serviceCategories = ['Hair', 'Nails', 'Beauty'];
+const serviceCategories = ['Hair', 'Nails', 'Beauty']; // Added 'Beauty'
 const FALLBACK_IMAGE_URL = 'https://placehold.co/150x100';
 
 

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'salon', # Your new app
+    'django_filters',
 ]
 
 MIDDLEWARE = [

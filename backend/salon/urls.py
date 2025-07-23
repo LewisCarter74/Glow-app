@@ -9,6 +9,7 @@ from .views import (
     LoyaltyPointView, LoyaltyPointRedeemView,
     AnalyticsView,
     SalonSettingListCreateView, SalonSettingDetailView,
+    AIStyleRecommendationView
 )
 
 urlpatterns = [
@@ -50,4 +51,7 @@ urlpatterns = [
     # Salon Settings
     path('salon-settings/', SalonSettingListCreateView.as_view(), name='salon-setting-list-create'),
     path('salon-settings/<int:pk>/', SalonSettingDetailView.as_view(), name='salon-setting-detail'),
+
+    # AI Features
+    path('ai-recommend/', AIStyleRecommendationView.as_view(), name='ai-style-recommendation'),
 ]

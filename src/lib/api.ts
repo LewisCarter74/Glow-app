@@ -39,11 +39,11 @@ async function authenticatedFetch(url: string, options: AuthenticatedFetchOption
 interface Service {
     id: string;
     name: string;
-    description: string; // Added description field
+    description: string;
     price: number;
     duration_minutes: number;
-    category: string;
-    imageUrl: string | null; // Added imageUrl field (allowing null)
+    category: string; 
+    imageUrl: string | null;
 }
 
 interface Stylist {
@@ -52,7 +52,7 @@ interface Stylist {
         first_name: string;
         last_name: string;
     };
-    specialties: string[]; // Now expected to hold categories, e.g., ["Hair", "Nails"]
+    specialties: string[]; // Expected to hold categories, e.g., ["Hair", "Nails", "Beauty"]
 }
 
 interface AppointmentData {
@@ -242,7 +242,8 @@ export async function confirmPasswordReset(uid: string, token: string, new_passw
 }
 
 // Services Endpoints
-export async function fetchServices(filters?: { category?: string; min_price?: number; max_price?: number; min_duration?: number; max_duration?: number; popularity?: string; }) {
+// Updated filters to include a 'search' string
+export async function fetchServices(filters?: { category?: string; search?: string; }) {
   try {
     let url = new URL(`${BASE_URL}/services/`);
     if (filters) {

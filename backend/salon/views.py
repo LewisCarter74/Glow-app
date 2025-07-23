@@ -2,17 +2,22 @@ from rest_framework import generics, permissions, status, views
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, login
-from django.db.models import Count, Sum, F
+from django.db.models import Count, Sum, F, Avg # Import Avg for popularity
 from django.utils import timezone
 from datetime import timedelta, datetime, time
 from django.db.models import Q
 
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting
+# Import filter backends for DRF
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter # Import OrderingFilter
+
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, Category # Import Category
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer, ServiceSerializer,
     StylistSerializer, AppointmentSerializer, ReviewSerializer, PromotionSerializer,
     LoyaltyPointSerializer, SalonSettingSerializer, PasswordResetSerializer,
-    PasswordResetConfirmSerializer
+    PasswordResetConfirmSerializer, AIStyleRecommendationInputSerializer,
+    AIRecommendationResponseSerializer, CategorySerializer # Import CategorySerializer
 )
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin, IsStylistOrAdmin, IsCustomerOrAdmin
 
@@ -29,7 +34,7 @@ class RegisterView(generics.CreateAPIView):
         # If a new customer registers, create a LoyaltyPoint entry for them
         # This ensures every customer has a LoyaltyPoint record for manual management
         if user.role == 'customer':
-            LoyaltyPoint.objects.get_or_create(customer=user, defaults={'points': 0})
+            LoyaltyPoint.objects.get_or_or_create(customer=user, defaults={'points': 0})
 
 
 class LoginView(views.APIView):
@@ -89,12 +94,32 @@ class PasswordResetConfirmView(views.APIView):
                          'uid': uid, 'token': token}, status=status.HTTP_200_OK)
 
 
+# --- Category Views (New) ---
+class CategoryListCreateView(generics.ListCreateAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = (permissions.AllowAny,)
+
+class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = (IsAdminOrReadOnly,)
+
+
 # --- Service Views ---
 
 class ServiceListCreateView(generics.ListCreateAPIView):
-    queryset = Service.objects.filter(is_active=True)
+    queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('reviews__rating')) # Annotate with average rating for popularity
     serializer_class = ServiceSerializer
-    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
+    permission_classes = (permissions.AllowAny,)
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter] # Add OrderingFilter
+    filterset_fields = {
+        'category__name': ['exact'], # Filter by category name
+        'duration_minutes': ['lte', 'gte'], # Filter by duration (less than or equal, greater than or equal)
+        'price': ['lte', 'gte'], # Filter by price (less than or equal, greater than or equal)
+    }
+    search_fields = ['name', 'description'] # Search by name and description
+    ordering_fields = ['price', 'duration_minutes', 'average_rating'] # Order by price, duration, or popularity (average_rating)
 
 class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
@@ -105,95 +130,21 @@ class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
 # --- Stylist Views ---
 
 class StylistListCreateView(generics.ListCreateAPIView):
-    queryset = Stylist.objects.filter(is_available=True)
+    queryset = Stylist.objects.filter(is_available=True).prefetch_related('specialties') # Prefetch specialties
     serializer_class = StylistSerializer
-    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
+    permission_classes = (permissions.AllowAny,)
+    filter_backends = [DjangoFilterBackend] # Add filter backend
+    filterset_fields = {'specialties__name': ['exact']} # Filter by specialty name (category name)
 
 class StylistDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Stylist.objects.all()
     serializer_class = StylistSerializer
-    permission_classes = (IsAdminOrReadOnly,) # Changed from IsStylistOrAdmin
+    permission_classes = (IsAdminOrReadOnly,) 
 
     def get_queryset(self):
-        # Allow stylists to view/update their own profile
-        # This method might not be strictly needed here anymore with IsAdminOrReadOnly
-        # but keeping it for context if specific stylist self-management is desired.
         if self.request.user.is_authenticated and self.request.user.role == 'stylist':
             return Stylist.objects.filter(user=self.request.user)
         return super().get_queryset()
-
-
-class AvailableStylistsView(generics.ListAPIView):
-    serializer_class = StylistSerializer
-    permission_classes = (permissions.AllowAny,)
-
-    def get_queryset(self):
-        queryset = Stylist.objects.filter(is_available=True)
-        service_ids = self.request.query_params.get('service_ids')
-
-        if service_ids:
-            service_id_list = [id.strip() for id in service_ids.split(',') if id.strip()]
-            
-            # Filter stylists who offer ALL selected services
-            for service_id in service_id_list:
-                queryset = queryset.filter(specialties__id=service_id)
-            
-            # Ensure each stylist has *all* the services, not just some
-            queryset = queryset.annotate(num_services=Count('specialties'))\
-                               .filter(num_services__gte=len(service_id_list))
-
-        appointment_date = self.request.query_params.get('appointment_date')
-        appointment_time = self.request.query_params.get('appointment_time')
-        total_duration_minutes = self.request.query_params.get('total_duration')
-        
-        if appointment_date and appointment_time and total_duration_minutes:
-            try:
-                app_date = datetime.strptime(appointment_date, '%Y-%m-%d').date()
-                app_time = datetime.strptime(appointment_time, '%H:%M:%S').time()
-                total_duration = int(total_duration_minutes)
-
-                # Calculate appointment start and end datetimes
-                # Create a dummy datetime object to perform time arithmetic
-                dummy_datetime_start = datetime.combine(app_date, app_time)
-                dummy_datetime_end = dummy_datetime_start + timedelta(minutes=total_duration)
-                
-                # Convert back to time objects for comparison with working hours
-                app_end_time = dummy_datetime_end.time()
-
-                # Filter stylists whose working hours encompass the requested time slot
-                queryset = queryset.filter(
-                    Q(working_hours_start__lte=app_time) | Q(working_hours_start__isnull=True),
-                    Q(working_hours_end__gte=app_end_time) | Q(working_hours_end__isnull=True)
-                )
-
-                # Exclude stylists who have overlapping appointments
-                # An appointment overlaps if:
-                # (start_time < existing_end_time) AND (end_time > existing_start_time)
-                occupied_stylists_ids = []
-                for stylist in queryset:
-                    # Reconstruct existing appointment start and end datetimes for robust comparison
-                    existing_appointments = Appointment.objects.filter(
-                        stylist=stylist,
-                        appointment_date=app_date,
-                        status__in=['pending', 'approved', 'rescheduled']
-                    )
-                    
-                    for existing_app in existing_appointments:
-                        existing_start_dt = datetime.combine(existing_app.appointment_date, existing_app.appointment_time)
-                        existing_end_dt = existing_start_dt + timedelta(minutes=existing_app.duration_minutes)
-
-                        # Check for overlap
-                        if not (dummy_datetime_end <= existing_start_dt or dummy_datetime_start >= existing_end_dt):
-                            occupied_stylists_ids.append(stylist.id)
-                            break # No need to check other appointments for this stylist
-                
-                queryset = queryset.exclude(id__in=occupied_stylists_ids)
-
-            except (ValueError, TypeError):
-                # Log the error or return a specific response if date/time/duration format is invalid
-                pass
-
-        return queryset.distinct()
 
 
 # --- Appointment Views ---
@@ -206,7 +157,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.role == 'admin':
             return Appointment.objects.all()
-        elif user.role == 'customer':
+        elif user.role == 'customer
             return Appointment.objects.filter(customer=user)
         elif user.role == 'stylist':
             try:
@@ -221,9 +172,12 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         if customer.role != 'customer':
             raise serializers.ValidationError("Only customers can create appointments.")
 
-        service_ids = serializer.validated_data['service_ids']
-        services = Service.objects.filter(id__in=service_ids)
-        total_duration = services.aggregate(Sum('duration_minutes'))['duration_minutes__sum'] or 0
+        # The heavy lifting of validation (stylist availability, time conflicts)
+        # is now handled in the serializer's .validate() method.
+        # The serializer should return validated_data with 'stylist' and 'services' objects.
+
+        services = serializer.validated_data['services']
+        total_duration = sum(s.duration_minutes for s in services) # Calculate total duration from selected services
         
         serializer.save(customer=customer, duration_minutes=total_duration, status='pending')
 
@@ -244,37 +198,18 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
                 raise serializers.ValidationError("Only pending or approved appointments can be rescheduled or cancelled.")
             if 'status' in serializer.validated_data and serializer.validated_data['status'] not in ['cancelled', 'rescheduled']:
                 raise serializers.ValidationError("Customers can only change status to cancelled or rescheduled.")
-            # If rescheduling, check stylist availability
-            if 'appointment_date' in serializer.validated_data or 'appointment_time' in serializer.validated_data:
-                stylist = instance.stylist
-                new_date = serializer.validated_data.get('appointment_date', instance.appointment_date)
-                new_time = serializer.validated_data.get('appointment_time', instance.appointment_time)
-                
-                # Re-calculate total_duration for rescheduling if services are being changed
-                # Otherwise, use existing instance duration
-                services_in_update = serializer.validated_data.get('services', instance.services.all())
-                reschedule_total_duration = sum(s.duration_minutes for s in services_in_update)
-
-                # Calculate appointment start and end datetimes for the new proposed time
-                proposed_start_dt = datetime.combine(new_date, new_time)
-                proposed_end_dt = proposed_start_dt + timedelta(minutes=reschedule_total_duration)
-
-                # Find existing appointments for this stylist on this date that are active
-                existing_appointments = Appointment.objects.filter(
-                    stylist=stylist,
-                    appointment_date=new_date,
-                    status__in=['pending', 'approved', 'rescheduled']
-                ).exclude(pk=instance.pk) # Exclude the current appointment being updated
-
-                for existing_app in existing_appointments:
-                    existing_start_dt = datetime.combine(existing_app.appointment_date, existing_app.appointment_time)
-                    existing_end_dt = existing_start_dt + timedelta(minutes=existing_app.duration_minutes)
-
-                    # Check for overlap: (proposed_start < existing_end) AND (proposed_end > existing_start)
-                    if not (proposed_end_dt <= existing_start_dt or proposed_start_dt >= existing_end_dt):
-                        raise serializers.ValidationError({"detail": "The requested reschedule time slot is not available due to an overlap with an existing appointment."})
+            
+            # Recalculate duration if services are being changed
+            # The serializer's validate method will re-run its availability checks if fields change.
+            # We just need to ensure the duration_minutes is correctly set for the instance before saving.
+            if 'service_ids' in serializer.validated_data: # If services are changing
+                new_service_ids = serializer.validated_data['service_ids']
+                new_services = Service.objects.filter(id__in=new_service_ids)
+                total_duration = sum(s.duration_minutes for s in new_services)
+                serializer.validated_data['duration_minutes'] = total_duration
 
             serializer.save()
+
         # Stylist/Admin can manage all aspects (approve/reject/complete/etc.)
         elif user.role in ['stylist', 'admin']:
             if user.role == 'stylist':
@@ -288,14 +223,10 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
             # Loyalty points logic for completed appointments (Re-added)
             if serializer.instance.status == 'completed' and instance.status != 'completed':
-                # Get the service price from the appointment instance
-                # Assuming `service` is a single field or total price is stored
-                # If `services` is ManyToMany, you'd sum their prices.
                 service_price = sum(service.price for service in serializer.instance.services.all()) 
-                # Calculate points: 1 point for every 100 shillings
                 points_to_add = int(service_price / 100)
 
-                if points_to_add > 0: # Only add points if there are any to add
+                if points_to_add > 0: 
                     loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=instance.customer)
                     loyalty_points.points += points_to_add
                     loyalty_points.save()
@@ -345,7 +276,7 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 class PromotionListCreateView(generics.ListCreateAPIView):
     queryset = Promotion.objects.filter(is_active=True, valid_until__gte=timezone.now())
     serializer_class = PromotionSerializer
-    permission_classes = (permissions.AllowAny,) # Explicitly allow any for list
+    permission_classes = (permissions.AllowAny,) 
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Promotion.objects.all()
@@ -361,13 +292,11 @@ class LoyaltyPointView(generics.RetrieveAPIView):
     permission_classes = (IsOwnerOrAdmin,)
 
     def get_object(self):
-        # Customers can only view their own loyalty points
         if self.request.user.role == 'customer':
             try:
                 return LoyaltyPoint.objects.get(customer=self.request.user)
             except LoyaltyPoint.DoesNotExist:
                 raise generics.ValidationError("Loyalty points not found for this user.")
-        # Admin can view any loyalty points by pk
         return super().get_object()
 
 class LoyaltyPointRedeemView(views.APIView):
@@ -387,9 +316,7 @@ class LoyaltyPointRedeemView(views.APIView):
         if not isinstance(redeem_amount, (int, float)) or redeem_amount <= 0:
             return Response({'detail': 'Invalid redeem amount. Must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Define the redemption rate: e.g., 100 points = 1 unit of discount (e.g., $1 or KSh 1)
-        # You can make this configurable via SalonSetting if needed.
-        redemption_rate_per_unit = 100  # 100 points = 1 unit of currency (e.g., 1 KSh or 1 USD)
+        redemption_rate_per_unit = 100  
 
         if loyalty_points.points < redeem_amount:
             return Response({'detail': 'Insufficient loyalty points.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -411,7 +338,6 @@ class AnalyticsView(views.APIView):
     permission_classes = (permissions.IsAdminUser,)
 
     def get(self, request, *args, **kwargs):
-        # Monthly & annual number of customers
         current_year = timezone.now().year
         current_month = timezone.now().month
 
@@ -426,17 +352,13 @@ class AnalyticsView(views.APIView):
             status__in=['completed']
         ).values('customer__email').distinct().count()
 
-        # Service performance (most/least booked)
         service_performance = Appointment.objects.filter(
             status__in=['completed']
         ).values('service__name').annotate(count=Count('service__name')).order_by('-count')
 
-        # Revenue insights (if payment data is available)
-        # This assumes a 'price' field on the Appointment model, or linkage to a Payment model.
-        # For simplicity, we'll use the service price at the time of booking if available.
         total_revenue = Appointment.objects.filter(
             status='completed'
-        ).aggregate(total_revenue=Sum(F('service__price')))
+        ).aggregate(total_revenue=Sum(F('services__price')))
 
         return Response({
             'monthly_customers': monthly_customers,
@@ -456,3 +378,65 @@ class SalonSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = SalonSetting.objects.all()
     serializer_class = SalonSettingSerializer
     permission_classes = (permissions.IsAdminUser,)
+
+
+# --- AI Features ---
+
+def get_ai_recommendation(preferences: str = None, image_file = None, request=None):
+    """
+    Placeholder function to simulate AI style recommendation.
+    In a real application, this would interact with an actual AI model.
+    """
+    recommendations = []
+
+    if preferences and "short" in preferences.lower():
+        recommendations.append({
+            "description": "A chic bob cut would suit your preferences for a short style.",
+            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/bob_cut.jpg') if request else "https://placehold.co/1200x800",
+            "specialistId": None 
+        })
+    elif preferences and "long" in preferences.lower():
+        recommendations.append({
+            "description": "Consider long, flowing waves for an elegant and versatile look.",
+            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/long_waves.jpg') if request else "https://placehold.co/1200x800",
+            "specialistId": None
+        })
+    elif preferences and "braids" in preferences.lower():
+        recommendations.append({
+            "description": "Box braids or cornrows could be a great protective and stylish option.",
+            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/box_braids.jpg') if request else "https://placehold.co/1200x800",
+            "specialistId": None
+        })
+    elif image_file:
+        recommendations.append({
+            "description": "Based on your image, a classic updo would enhance your features.",
+            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/updo.jpg') if request else "https://placehold.co/1200x800",
+            "specialistId": None
+        })
+    else:
+        recommendations.append({
+            "description": "Discover a fresh new look! Try a layered cut with highlights.",
+            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/layered_highlights.jpg') if request else "https://placehold.co/1200x800",
+            "specialistId": None
+        })
+    
+    return recommendations
+
+
+class AIStyleRecommendationView(views.APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = AIStyleRecommendationInputSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        preferences = serializer.validated_data.get('preferences')
+        image = serializer.validated_data.get('image')
+
+        ai_output = get_ai_recommendation(preferences=preferences, image_file=image, request=request)
+
+        response_serializer = AIRecommendationResponseSerializer(data={'recommendations': ai_output})
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
