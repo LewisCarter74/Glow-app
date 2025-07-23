@@ -14,22 +14,72 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getLoyaltyPoints } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PromotionsPage() {
-  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     if (user) {
+      setLoading(true);
       getLoyaltyPoints()
         .then((data) => {
           setLoyaltyPoints(data.points);
         })
         .catch((error) => {
           console.error('Failed to fetch loyalty points:', error);
+          if (error.message.includes('401') || error.message.includes('403')) {
+            setError('Authentication failed. Please log in again.');
+          } else {
+            setError('Could not load your loyalty points. Please try again later.');
+          }
+        })
+        .finally(() => {
+          setLoading(false);
         });
+    } else {
+      setLoading(false);
     }
   }, [user]);
+
+  const renderLoyaltyContent = () => {
+    if (loading) {
+      return (
+        <>
+          <Skeleton className="h-20 w-32 mx-auto" />
+          <Skeleton className="h-6 w-48 mx-auto mt-2" />
+        </>
+      );
+    }
+
+    if (!user) {
+      return (
+        <div className="text-center flex flex-col items-center justify-center h-full">
+           <p className="text-muted-foreground mb-4">
+            Please log in to see your loyalty points.
+          </p>
+          <Button asChild>
+            <Link href="/login">Login</Link>
+          </Button>
+        </div>
+      );
+    }
+    
+    if (error) {
+        return <p className="text-destructive text-center">{error}</p>
+    }
+
+    return (
+        <>
+        <p className="text-6xl font-bold">{loyaltyPoints}</p>
+        <p className="text-muted-foreground mt-2">Your current balance</p>
+        </>
+    )
+
+  }
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -67,7 +117,7 @@ export default function PromotionsPage() {
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full">
-              <Link href="/book">Book Now & Redeem</Link>
+              <Link href="/booking">Book Now & Redeem</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -85,11 +135,10 @@ export default function PromotionsPage() {
             </div>
           </CardHeader>
           <CardContent className="flex-grow text-center">
-            <p className="text-6xl font-bold">{loyaltyPoints}</p>
-            <p className="text-muted-foreground mt-2">Your current balance</p>
+            {renderLoyaltyContent()}
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={!user || error !== null}>
               Redeem Loyalty Points
             </Button>
           </CardFooter>

@@ -14,7 +14,7 @@ export default function HomePage() {
           Your one-stop solution for booking salon appointments.
         </p>
         <div className="mt-10 flex items-center justify-center gap-x-6">
-          <Link href="/book">
+          <Link href="/booking">
             <Button>Book an Appointment</Button>
           </Link>
           <Link href="/services">

@@ -53,8 +53,8 @@ export default function StylistCard({
           <Image
             src={stylist.imageUrl}
             alt={`Photo of ${stylist.user.first_name}`}
-            layout="fill"
-            objectFit="cover"
+            fill 
+            style={{ objectFit: 'cover' }} 
             className="rounded-t-lg"
             data-ai-hint="professional stylist portrait"
           />

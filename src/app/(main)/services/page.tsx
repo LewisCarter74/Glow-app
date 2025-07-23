@@ -96,7 +96,7 @@ export default function ServicesPage() {
                         </div>
                         <div className="flex-shrink-0 self-center">
                           <Button asChild>
-                            <Link href="/book">Book Now</Link>
+                            <Link href="/booking">Book Now</Link>
                           </Button>
                         </div>
                       </div>

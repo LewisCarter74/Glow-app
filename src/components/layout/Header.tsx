@@ -26,7 +26,7 @@ const navLinks = [
   { href: "/about", label: "About Us" },
 ];
 
-const mobileNavLinks = [...navLinks, { href: "/book", label: "Book Now" }];
+const mobileNavLinks = [...navLinks, { href: "/booking", label: "Book Now" }];
 
 export function Header() {
   const { user, logout } = useAuth(); // Changed signOut to logout
@@ -71,7 +71,7 @@ export function Header() {
 
         <div className="flex items-center gap-4 ml-auto">
           <Button asChild size="lg" className="hidden sm:flex">
-             <Link href="/book">Book Now</Link>
+             <Link href="/booking">Book Now</Link>
           </Button>
           
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
