@@ -109,17 +109,39 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 # --- Service Views ---
 
 class ServiceListCreateView(generics.ListCreateAPIView):
-    queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('appointment__review__rating')) # Corrected: Traverse through Appointment to Review
     serializer_class = ServiceSerializer
     permission_classes = (permissions.AllowAny,)
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter] # Add OrderingFilter
-    filterset_fields = {
-        'category__name': ['exact'], # Filter by category name (changed from 'category')
-        'duration_minutes': ['lte', 'gte'], # Filter by duration (less than or equal, greater than or equal)
-        'price': ['lte', 'gte'], # Filter by price (less than or equal, greater than or equal)
-    }
-    search_fields = ['name', 'description'] # Search by name and description
-    ordering_fields = ['price', 'duration_minutes', 'average_rating'] # Order by price, duration, or popularity (average_rating)
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['price', 'duration_minutes', 'average_rating']
+
+    def get_queryset(self):
+        queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('appointment__review__rating'))
+        
+        # Custom filtering for category name
+        category_name = self.request.query_params.get('category', None)
+        if category_name is not None:
+            queryset = queryset.filter(category__name__iexact=category_name)
+
+        # Custom filtering for duration and price
+        duration_lte = self.request.query_params.get('duration_minutes__lte', None)
+        if duration_lte is not None:
+            queryset = queryset.filter(duration_minutes__lte=duration_lte)
+
+        duration_gte = self.request.query_params.get('duration_minutes__gte', None)
+        if duration_gte is not None:
+            queryset = queryset.filter(duration_minutes__gte=duration_gte)
+
+        price_lte = self.request.query_params.get('price__lte', None)
+        if price_lte is not None:
+            queryset = queryset.filter(price__lte=price_lte)
+
+        price_gte = self.request.query_params.get('price__gte', None)
+        if price_gte is not None:
+            queryset = queryset.filter(price__gte=price_gte)
+            
+        return queryset
+
 
 class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
@@ -130,11 +152,15 @@ class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
 # --- Stylist Views ---
 
 class StylistListCreateView(generics.ListCreateAPIView):
-    queryset = Stylist.objects.filter(is_available=True).prefetch_related('specialties') # Prefetch specialties
     serializer_class = StylistSerializer
     permission_classes = (permissions.AllowAny,)
-    filter_backends = [DjangoFilterBackend] # Add filter backend
-    filterset_fields = {'specialties__name': ['exact']} # Filter by specialty name (category name)
+
+    def get_queryset(self):
+        queryset = Stylist.objects.filter(is_available=True).prefetch_related('specialties')
+        category = self.request.query_params.get('category', None)
+        if category:
+            queryset = queryset.filter(specialties__name__iexact=category)
+        return queryset
 
 class StylistDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Stylist.objects.all()

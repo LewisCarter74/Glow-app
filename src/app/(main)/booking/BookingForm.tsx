@@ -75,7 +75,11 @@ export default function BookingForm() {
 
   useEffect(() => {
     const getServicesAndStylists = async () => {
-      if (!selectedCategory) return;
+      if (!selectedCategory) {
+          setServices([]);
+          setStylists([]);
+          return;
+      };
       try {
         const fetchedServices = await fetchServices({ category: selectedCategory, search: debouncedSearchTerm });
         setServices(fetchedServices);
@@ -97,22 +101,12 @@ export default function BookingForm() {
   }, [selectedCategory, debouncedSearchTerm, toast]);
 
   const availableStylists = useMemo(() => {
-    if (selectedServices.length === 0) {
-      return stylists;
-    }
-    const selectedServiceCategories = new Set(services
-      .filter(s => selectedServices.includes(s.id))
-      .map(s => (s.category ?? "").toLowerCase().trim())
-    );
-    return stylists.filter(stylist => {
-        if (!stylist.specialties || !Array.isArray(stylist.specialties)) {
-            return false;
-        }
-        return Array.from(selectedServiceCategories).every(serviceCat => 
-            stylist.specialties.map(spec => (spec ?? "").toLowerCase().trim()).includes(serviceCat)
-        )
-    });
-  }, [selectedServices, stylists, services]);
+    // The `stylists` state is already filtered by the selected category
+    // in the `useEffect` hook. Per the requirement, any stylist in the
+    // selected category can perform any service in that category.
+    // Therefore, we return all stylists fetched for that category.
+    return stylists;
+  }, [stylists]);
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -177,6 +171,12 @@ export default function BookingForm() {
   };
   const prevStep = () => setStep((prev) => prev - 1);
 
+  const handleCategoryChange = (categoryName: string) => {
+    setSelectedCategory(categoryName);
+    setSelectedServices([]);
+    setSelectedStylistId("any");
+  };
+
   const handleServiceChange = (serviceId: string) => {
     setSelectedServices(prev => 
         prev.includes(serviceId) 
@@ -206,7 +206,7 @@ export default function BookingForm() {
               <h3 className="text-xl font-semibold flex items-center gap-2"><Sparkles/> Select a Category</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {categories.map(category => (
-                  <Button key={category.id} variant={selectedCategory === category.name ? "default" : "outline"} onClick={() => setSelectedCategory(category.name)} className="p-8 text-lg">
+                  <Button key={category.id} variant={selectedCategory === category.name ? "default" : "outline"} onClick={() => handleCategoryChange(category.name)} className="p-8 text-lg">
                     {category.name}
                   </Button>
                 ))}
@@ -260,7 +260,7 @@ export default function BookingForm() {
                     </SelectContent>
                   </Select>
                   {availableStylists.length === 0 && selectedServices.length > 0 && (
-                    <p className="text-sm text-destructive text-center mt-4">No single stylist offers all selected services. Please adjust your selection.</p>
+                    <p className="text-sm text-destructive text-center mt-4">No available stylists for this category. Please try another category.</p>
                   )}
             </div>
           )}
