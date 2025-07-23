@@ -109,7 +109,7 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 # --- Service Views ---
 
 class ServiceListCreateView(generics.ListCreateAPIView):
-    queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('reviews__rating')) # Annotate with average rating for popularity
+    queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('appointment__review__rating')) # Corrected: Traverse through Appointment to Review
     serializer_class = ServiceSerializer
     permission_classes = (permissions.AllowAny,)
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter] # Add OrderingFilter
