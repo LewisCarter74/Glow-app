@@ -130,7 +130,7 @@ export async function loginUser(email: string, password: string) {
     localStorage.setItem('user', JSON.stringify(data.user));
 
     return data.user;
-  } catch (error) { // Corrected from 'Catch' to 'catch'
+  } catch (error) {
     console.error('Login error:', error);
     throw error;
   }
@@ -625,8 +625,9 @@ export async function deleteSalonSetting(id: string) {
 export async function testCreateAppointment() {
   try {
     const testAppointmentData = {
-      service_ids: ["service1", "service2"], // Replace with actual service IDs
-      stylist_id: "stylist1", // Replace with an actual stylist ID
+      // Using simple string IDs as requested
+      service_ids: ["service_id_1", "service_id_2"], // Replace with actual simple string IDs from your database
+      stylist_id: "stylist_id_1", // Replace with an actual simple string ID
       appointment_date: "2024-10-27",
       appointment_time: "10:00",
     };
@@ -639,7 +640,7 @@ export async function testCreateAppointment() {
 
     // Check if the created appointment is in the list of appointments
     const appointmentExists = appointments.some(
-      (appointment: { stylist_id: string; appointment_date: string; appointment_time: string; }) =>
+      (appointment: any) =>
         appointment.stylist_id === testAppointmentData.stylist_id &&
         appointment.appointment_date === testAppointmentData.appointment_date &&
         appointment.appointment_time === testAppointmentData.appointment_time

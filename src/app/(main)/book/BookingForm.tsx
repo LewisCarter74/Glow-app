@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -45,12 +44,27 @@ export default function BookingForm() {
   const [selectedTime, setSelectedTime] = useState<string>("");
 
   useEffect(() => {
-    fetchServices().then(setServices);
-    fetchStylists().then(setStylists);
+    fetchServices().then(data => {
+      setServices(data);
+      console.log("Fetched Services:", data);
+    });
+    fetchStylists().then(data => {
+      setStylists(data);
+      console.log("Fetched Stylists:", data);
+    });
   }, []);
 
+  useEffect(() => {
+    console.log("Selected Services:", selectedServices);
+  }, [selectedServices]);
+
   const availableStylists = useMemo(() => {
+    console.log("Recalculating available stylists...");
+    console.log("Current stylists state:", stylists);
+    console.log("Current services state:", services);
+
     if (selectedServices.length === 0) {
+      console.log("No services selected, returning all stylists.");
       return stylists;
     }
     // Find the names of the selected services
@@ -58,12 +72,18 @@ export default function BookingForm() {
       .filter(s => selectedServices.includes(s.id))
       .map(s => s.name);
 
+    console.log("Selected Service Names:", selectedServiceNames);
+
     // Filter stylists who have all of the selected services in their specialties
-    return stylists.filter(stylist => 
-      selectedServiceNames.every(serviceName => 
-        stylist.specialties.includes(serviceName)
-      )
+    const filteredStylists = stylists.filter(stylist => 
+      selectedServiceNames.every(serviceName => {
+        const includesSpecialty = stylist.specialties.includes(serviceName);
+        console.log(`Stylist ${stylist.user.first_name} ${stylist.user.last_name} has specialty '${serviceName}': ${includesSpecialty}`);
+        return includesSpecialty;
+      })
     );
+    console.log("Filtered Available Stylists:", filteredStylists);
+    return filteredStylists;
   }, [selectedServices, stylists, services]);
 
   const totalCost = services
