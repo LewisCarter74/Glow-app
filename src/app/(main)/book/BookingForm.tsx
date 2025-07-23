@@ -12,13 +12,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { createAppointment, fetchServices, fetchStylists } from "@/lib/api";
+import { Input } from "@/components/ui/input"; // Assuming you have an Input component
 
 interface Service {
     id: string;
     name: string;
+    description: string;
     price: number;
     duration_minutes: number;
     category: string; // Added category field
+    imageUrl: string | null;
 }
 
 interface Stylist {
@@ -44,12 +47,32 @@ export default function BookingForm() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all"); // New state for category filter
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [minDuration, setMinDuration] = useState<string>("");
+  const [maxDuration, setMaxDuration] = useState<string>("");
 
-  // Fetch services and stylists based on selected category
+  // Fetch services and stylists based on selected category and other filters
   useEffect(() => {
     const getServicesAndStylists = async () => {
       try {
-        const serviceFilters = selectedCategory !== "all" ? { category: selectedCategory } : {};
+        const serviceFilters: { [key: string]: any } = {};
+        if (selectedCategory !== "all") {
+          serviceFilters.category = selectedCategory;
+        }
+        if (minPrice) {
+          serviceFilters.min_price = parseFloat(minPrice);
+        }
+        if (maxPrice) {
+          serviceFilters.max_price = parseFloat(maxPrice);
+        }
+        if (minDuration) {
+          serviceFilters.min_duration = parseInt(minDuration);
+        }
+        if (maxDuration) {
+          serviceFilters.max_duration = parseInt(maxDuration);
+        }
+
         const fetchedServices = await fetchServices(serviceFilters);
         setServices(fetchedServices);
         console.log("Fetched Services:", fetchedServices);
@@ -68,7 +91,7 @@ export default function BookingForm() {
     };
 
     getServicesAndStylists();
-  }, [selectedCategory, toast]); // Re-fetch when category changes
+  }, [selectedCategory, minPrice, maxPrice, minDuration, maxDuration, toast]); // Re-fetch when category or filters change
 
   useEffect(() => {
     console.log("Selected Services:", selectedServices);
@@ -77,6 +100,7 @@ export default function BookingForm() {
   const allCategories = useMemo(() => {
     const categories = new Set<string>();
     services.forEach(service => categories.add(service.category));
+    // Ensure stylist specialties are treated as categories for the dropdown
     stylists.forEach(stylist => stylist.specialties.forEach(spec => categories.add(spec)));
     return ["all", ...Array.from(categories).sort()];
   }, [services, stylists]);
@@ -210,20 +234,64 @@ export default function BookingForm() {
               <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
 
               {/* Category Filter for Services */}
-              <div className="mb-4">
-                <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Category:</label>
-                <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allCategories.map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category === "all" ? "All Categories" : category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Category:</label>
+                  <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCategories.map(category => (
+                        <SelectItem key={category} value={category}>
+                          {category === "all" ? "All Categories" : category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Price Range Filters */}
+                <div>
+                  <label htmlFor="price-range" className="block text-sm font-medium text-gray-700 mb-1">Price Range ($):</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min Price"
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      className="w-1/2"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Max Price"
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      className="w-1/2"
+                    />
+                  </div>
+                </div>
+
+                {/* Duration Range Filters */}
+                <div>
+                  <label htmlFor="duration-range" className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes):</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min Duration"
+                      value={minDuration}
+                      onChange={(e) => setMinDuration(e.target.value)}
+                      className="w-1/2"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Max Duration"
+                      value={maxDuration}
+                      onChange={(e) => setMaxDuration(e.target.value)}
+                      className="w-1/2"
+                    />
+                  </div>
+                </div>
               </div>
 
               {services.length > 0 ? (
@@ -241,7 +309,7 @@ export default function BookingForm() {
                     </div>
                 ))
               ) : (
-                <p className="text-center text-muted-foreground">No services available for this category.</p>
+                <p className="text-center text-muted-foreground">No services available for this category or selected filters.</p>
               )}
             </div>
           )}
