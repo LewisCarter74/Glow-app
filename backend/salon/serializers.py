@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category # Import Category
 from django.contrib.auth import authenticate
-from django.db.models import Avg, Q # Import Q object
+from django.db.models import Avg, Q, Count # Import Q object and Count
+from django.db.models.functions import ExtractMinute # Import ExtractMinute for duration calculations
+from django.db.models import F, ExpressionWrapper, fields # For ExpressionWrapper
 from django.urls import reverse_lazy
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 
 class UserSerializer(serializers.ModelSerializer):
     # Add a 'name' field for frontend compatibility
@@ -213,34 +215,15 @@ class AppointmentSerializer(serializers.ModelSerializer):
             if not stylist.is_available:
                  raise serializers.ValidationError({"stylist_id": "Preferred stylist is not available."})
 
-            stylist_categories = set(category for category in stylist.specialties.all())
+            stylist_categories = set(category.name for category in stylist.specialties.all())
+            
+            # Check if all required categories are present in the stylist's specialties
             if not required_categories.issubset(stylist_categories):
                  missing_categories = required_categories - stylist_categories
-                 raise serializers.ValidationError({"stylist_id": f"Preferred stylist does not specialize in category(ies): {', '.join(c.name for c in missing_categories)}."})
+                 raise serializers.ValidationError({"stylist_id": f"Preferred stylist does not specialize in category(ies): {', '.join(missing_categories)}."})
+
 
             # Check for time conflicts with preferred stylist
-            end_time = (datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time()
-            conflicting_appointments = Appointment.objects.filter(
-                stylist=stylist,
-                appointment_date=appointment_date,
-                status__in=['pending', 'approved', 'rescheduled']
-            ).filter(
-                Q(appointment_time__lt=end_time, appointment_time__gte=appointment_time) |
-                Q(appointment_time__lt=end_time, appointment_time__gte=appointment_time)
-            )
-             # Refined conflict check:
-            conflicting_appointments = Appointment.objects.filter(
-                stylist=stylist,
-                appointment_date=appointment_date,
-                status__in=['pending', 'approved', 'rescheduled']
-            ).filter(
-                Q(appointment_time__lt=end_time) & 
-                Q(appointment_time__gte=appointment_time) | 
-                Q(appointment_time__lt=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=self.instance.duration_minutes if self.instance else 0)).time()) & 
-                Q(appointment_time__gte=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time())
-            )
-            
-            # Corrected conflict check logic to be more robust
             start_datetime = datetime.combine(appointment_date, appointment_time)
             end_datetime = start_datetime + timedelta(minutes=total_duration)
 
@@ -248,30 +231,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 stylist=stylist,
                 appointment_date=appointment_date,
                 status__in=['pending', 'approved', 'rescheduled']
-            ).filter(
-                Q(appointment_time__lt=end_datetime.time()) & 
-                Q(end_time__gt=appointment_time) # Assuming you add an end_time field to Appointment model
-            )
-
-            # Adjusting conflict check without an explicit end_time field in the model
-            # This assumes appointment_time is the start time and duration_minutes determines the end
-            # Need to compare time ranges. Appointment A (start_A, duration_A), Appointment B (start_B, duration_B)
-            # Conflict if (start_A < end_B) and (end_A > start_B)
-            # end_A = start_A + duration_A, end_B = start_B + duration_B
-
-            conflicting_appointments = Appointment.objects.filter(
-                stylist=stylist,
-                appointment_date=appointment_date,
-                status__in=['pending', 'approved', 'rescheduled']
             ).annotate(
-                appointment_end_time=ExpressionWrapper(
-                    F('appointment_time') + Expression('INTERVAL ' || Cast(F('duration_minutes'), TextField()) || ' MINUTE'),
-                    output_field=models.TimeField()
+                # Calculate end time for existing appointments
+                existing_appointment_end_time=ExpressionWrapper(
+                    F('appointment_time') + timedelta(minutes=1) * F('duration_minutes'),
+                    output_field=fields.TimeField()
                 )
             ).filter(
-                 # Check for overlap: (start1 < end2) and (end1 > start2)
-                Q(appointment_time__lt=(datetime.combine(appointment_date, appointment_time) + timedelta(minutes=total_duration)).time()) &
-                Q(appointment_end_time__gt=appointment_time)
+                # Check for overlap: (start1 < end2) and (end1 > start2)
+                Q(appointment_time__lt=end_datetime.time()) &
+                Q(existing_appointment_end_time__gt=appointment_time)
             )
 
             # Exclude the current instance if it's an update
@@ -288,8 +257,10 @@ class AppointmentSerializer(serializers.ModelSerializer):
             # Find stylists who specialize in ALL required categories and are available
             available_stylists = Stylist.objects.filter(
                 is_available=True,
-                specialties__in=required_categories # This checks if the stylist has AT LEAST ONE of the required categories
-            ).annotate(num_specialties=Count('specialties')).filter(num_specialties=len(required_categories)) # Ensure they have ALL required categories
+                specialties__name__in=required_categories # Check if the stylist has AT LEAST ONE of the required categories
+            ).annotate(
+                num_matching_specialties=Count('specialties', filter=Q(specialties__name__in=required_categories))
+            ).filter(num_matching_specialties=len(required_categories)) # Ensure they have ALL required categories
 
             if not available_stylists.exists():
                  raise serializers.ValidationError({"detail": "No stylist available for the selected services' categories."})
@@ -304,10 +275,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     continue
 
                 # Check for time conflicts
-                # Need to compare time ranges. Appointment A (start_A, duration_A), Appointment B (start_B, duration_B)
-                # Conflict if (start_A < end_B) and (end_A > start_B)
-                # end_A = start_A + duration_A, end_B = start_B + duration_B
-
                 start_datetime = datetime.combine(appointment_date, appointment_time)
                 end_datetime = start_datetime + timedelta(minutes=total_duration)
 
@@ -316,13 +283,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
                     appointment_date=appointment_date,
                     status__in=['pending', 'approved', 'rescheduled']
                  ).annotate(
-                    appointment_end_time=ExpressionWrapper(
-                        F('appointment_time') + Expression('INTERVAL ' || Cast(F('duration_minutes'), TextField()) || ' MINUTE'),
-                        output_field=models.TimeField()
+                    existing_appointment_end_time=ExpressionWrapper(
+                        F('appointment_time') + timedelta(minutes=1) * F('duration_minutes'),
+                        output_field=fields.TimeField()
                     )
                 ).filter(
                     Q(appointment_time__lt=end_datetime.time()) &
-                    Q(appointment_end_time__gt=appointment_time)
+                    Q(existing_appointment_end_time__gt=appointment_time)
                 )
                 
                 if not conflicting_appointments.exists():
@@ -331,7 +298,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             if not potential_stylists:
                 raise serializers.ValidationError({"detail": "No stylist available at the requested time for the selected services."})
 
-            # Simple auto-assignment: pick the first available stylist
+            # Simple auto-assignment: pick the first available stylist (could be enhanced with popularity, etc.)
             assigned_stylist = potential_stylists[0]
             data['stylist'] = assigned_stylist
 

@@ -34,7 +34,7 @@ class RegisterView(generics.CreateAPIView):
         # If a new customer registers, create a LoyaltyPoint entry for them
         # This ensures every customer has a LoyaltyPoint record for manual management
         if user.role == 'customer':
-            LoyaltyPoint.objects.get_or_or_create(customer=user, defaults={'points': 0})
+            LoyaltyPoint.objects.get_or_create(customer=user, defaults={'points': 0})
 
 
 class LoginView(views.APIView):
@@ -114,7 +114,7 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     permission_classes = (permissions.AllowAny,)
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter] # Add OrderingFilter
     filterset_fields = {
-        'category__name': ['exact'], # Filter by category name
+        'category__name': ['exact'], # Filter by category name (changed from 'category')
         'duration_minutes': ['lte', 'gte'], # Filter by duration (less than or equal, greater than or equal)
         'price': ['lte', 'gte'], # Filter by price (less than or equal, greater than or equal)
     }
@@ -157,7 +157,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.role == 'admin':
             return Appointment.objects.all()
-        elif user.role == 'customer
+        elif user.role == 'customer': # Fixed typo here
             return Appointment.objects.filter(customer=user)
         elif user.role == 'stylist':
             try:
@@ -352,9 +352,10 @@ class AnalyticsView(views.APIView):
             status__in=['completed']
         ).values('customer__email').distinct().count()
 
+        # Corrected for Service to Category change
         service_performance = Appointment.objects.filter(
             status__in=['completed']
-        ).values('service__name').annotate(count=Count('service__name')).order_by('-count')
+        ).values('services__category__name').annotate(count=Count('services__category__name')).order_by('-count')
 
         total_revenue = Appointment.objects.filter(
             status='completed'

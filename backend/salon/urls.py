@@ -2,14 +2,15 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, UserProfileView, PasswordResetView, PasswordResetConfirmView,
     ServiceListCreateView, ServiceDetailView,
-    StylistListCreateView, StylistDetailView, AvailableStylistsView,
+    StylistListCreateView, StylistDetailView,
     AppointmentListCreateView, AppointmentDetailView,
     ReviewListCreateView, ReviewDetailView,
     PromotionListCreateView, PromotionDetailView,
     LoyaltyPointView, LoyaltyPointRedeemView,
     AnalyticsView,
     SalonSettingListCreateView, SalonSettingDetailView,
-    AIStyleRecommendationView
+    AIStyleRecommendationView,
+    CategoryListCreateView, CategoryDetailView # Import new category views
 )
 
 urlpatterns = [
@@ -20,6 +21,10 @@ urlpatterns = [
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 
+    # Categories (New)
+    path('categories/', CategoryListCreateView.as_view(), name='category-list-create'),
+    path('categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
+
     # Services
     path('services/', ServiceListCreateView.as_view(), name='service-list-create'),
     path('services/<int:pk>/', ServiceDetailView.as_view(), name='service-detail'),
@@ -27,7 +32,9 @@ urlpatterns = [
     # Stylists
     path('stylists/', StylistListCreateView.as_view(), name='stylist-list-create'),
     path('stylists/<int:pk>/', StylistDetailView.as_view(), name='stylist-detail'),
-    path('stylists/available/', AvailableStylistsView.as_view(), name='available-stylists'),
+
+    # Removed 'stylists/available/' as it's not explicitly used after category changes
+    # path('stylists/available/', AvailableStylistsView.as_view(), name='available-stylists'),
 
     # Appointments
     path('appointments/', AppointmentListCreateView.as_view(), name='appointment-list-create'),
@@ -43,7 +50,7 @@ urlpatterns = [
 
     # Loyalty Points
     path('loyalty-points/', LoyaltyPointView.as_view(), name='loyalty-point-detail'),
-    path('loyalty-points/redeem/', LoyaltyPointRedeemView.as_view(), name='loyalty-point-redeem'), # Re-added
+    path('loyalty-points/redeem/', LoyaltyPointRedeemView.as_view(), name='loyalty-point-redeem'), 
 
     # Analytics
     path('analytics/', AnalyticsView.as_view(), name='analytics'),

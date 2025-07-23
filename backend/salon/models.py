@@ -63,17 +63,12 @@ class Category(models.Model):
         return self.name
 
 class Service(models.Model):
-    SERVICE_CATEGORY_CHOICES = (
-        ('Hair', 'Hair'),
-        ('Nails', 'Nails'),
-        ('Beauty', 'Beauty'),
-    )
     id = models.BigAutoField(primary_key=True) 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_minutes = models.IntegerField(default=30, validators=[MinValueValidator(1)])
-    category = models.CharField(max_length=50, choices=SERVICE_CATEGORY_CHOICES, default='Hair')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='services') # Changed to ForeignKey
     image = models.ImageField(upload_to='service_images/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
