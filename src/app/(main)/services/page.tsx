@@ -16,10 +16,10 @@ interface Service {
   id: string;
   name: string;
   description: string;
-  price: string;
+  price: number; // Changed from string to number
   duration_minutes: number;
   category: string;
-  imageUrl: string | null; // Allow imageUrl to be null
+  imageUrl: string | null;
 }
 
 const serviceCategories = ['Hair', 'Nails', 'Beauty'];

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import BookingForm from "./book/BookingForm";
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
-import { testCreateAppointment } from "@/lib/api";
 
 export default function BookingPage() {
   const { user, isLoading } = useAuth();
@@ -15,7 +14,6 @@ export default function BookingPage() {
     if (!isLoading && !user) {
       router.push('/login');
     }
-    testCreateAppointment();
   }, [user, isLoading, router]);
 
   if (isLoading || !user) {

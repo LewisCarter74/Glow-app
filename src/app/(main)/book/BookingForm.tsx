@@ -18,6 +18,7 @@ interface Service {
     name: string;
     price: number;
     duration_minutes: number;
+    category: string; // Added category field
 }
 
 interface Stylist {
@@ -26,7 +27,7 @@ interface Stylist {
         first_name: string;
         last_name: string;
     };
-    specialties: string[];
+    specialties: string[]; // Now expected to hold categories, e.g., ["Hair", "Nails"]
 }
 
 export default function BookingForm() {
@@ -42,21 +43,43 @@ export default function BookingForm() {
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all"); // New state for category filter
 
+  // Fetch services and stylists based on selected category
   useEffect(() => {
-    fetchServices().then(data => {
-      setServices(data);
-      console.log("Fetched Services:", data);
-    });
-    fetchStylists().then(data => {
-      setStylists(data);
-      console.log("Fetched Stylists:", data);
-    });
-  }, []);
+    const getServicesAndStylists = async () => {
+      try {
+        const serviceFilters = selectedCategory !== "all" ? { category: selectedCategory } : {};
+        const fetchedServices = await fetchServices(serviceFilters);
+        setServices(fetchedServices);
+        console.log("Fetched Services:", fetchedServices);
+
+        const stylistCategory = selectedCategory !== "all" ? selectedCategory : undefined;
+        const fetchedStylists = await fetchStylists(stylistCategory);
+        setStylists(fetchedStylists);
+        console.log("Fetched Stylists:", fetchedStylists);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+          variant: "destructive",
+          description: "Failed to load services or stylists."
+        });
+      }
+    };
+
+    getServicesAndStylists();
+  }, [selectedCategory, toast]); // Re-fetch when category changes
 
   useEffect(() => {
     console.log("Selected Services:", selectedServices);
   }, [selectedServices]);
+
+  const allCategories = useMemo(() => {
+    const categories = new Set<string>();
+    services.forEach(service => categories.add(service.category));
+    stylists.forEach(stylist => stylist.specialties.forEach(spec => categories.add(spec)));
+    return ["all", ...Array.from(categories).sort()];
+  }, [services, stylists]);
 
   const availableStylists = useMemo(() => {
     console.log("Recalculating available stylists...");
@@ -64,27 +87,36 @@ export default function BookingForm() {
     console.log("Current services state:", services);
 
     if (selectedServices.length === 0) {
-      console.log("No services selected, returning all stylists.");
+      console.log("No services selected, returning all stylists (or filtered by general category).");
+      // If a category is selected, return only stylists in that category
+      if (selectedCategory !== "all") {
+        return stylists.filter(stylist => 
+          stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(selectedCategory.toLowerCase().trim())
+        );
+      }
       return stylists;
     }
-    // Find the names of the selected services
-    const selectedServiceNames = services
+
+    // Get categories of selected services
+    const selectedServiceCategories = new Set(services
       .filter(s => selectedServices.includes(s.id))
-      .map(s => s.name);
-
-    console.log("Selected Service Names:", selectedServiceNames);
-
-    // Filter stylists who have all of the selected services in their specialties
-    const filteredStylists = stylists.filter(stylist => 
-      selectedServiceNames.every(serviceName => {
-        const includesSpecialty = stylist.specialties.includes(serviceName);
-        console.log(`Stylist ${stylist.user.first_name} ${stylist.user.last_name} has specialty '${serviceName}': ${includesSpecialty}`);
-        return includesSpecialty;
-      })
+      .map(s => s.category.toLowerCase().trim())
     );
+
+    console.log("Selected Service Categories (normalized):", Array.from(selectedServiceCategories));
+
+    // Filter stylists who specialize in ALL categories of the selected services
+    const filteredStylists = stylists.filter(stylist => {
+      const normalizedStylistSpecialties = stylist.specialties.map(spec => spec.toLowerCase().trim());
+      return Array.from(selectedServiceCategories).every(serviceCat => {
+        const includesCategory = normalizedStylistSpecialties.includes(serviceCat);
+        console.log(`Stylist ${stylist.user.first_name} ${stylist.user.last_name} has category '${serviceCat}': ${includesCategory}`);
+        return includesCategory;
+      });
+    });
     console.log("Filtered Available Stylists:", filteredStylists);
     return filteredStylists;
-  }, [selectedServices, stylists, services]);
+  }, [selectedServices, stylists, services, selectedCategory]);
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -155,7 +187,7 @@ export default function BookingForm() {
         ? prev.filter(id => id !== serviceId)
         : [...prev, serviceId]
     );
-    // Reset stylist selection when services change
+    // Reset stylist selection when services change or category changes
     setSelectedStylistId("any");
   }
 
@@ -176,7 +208,26 @@ export default function BookingForm() {
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
-              {services.map((service) => (
+
+              {/* Category Filter for Services */}
+              <div className="mb-4">
+                <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Category:</label>
+                <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allCategories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category === "all" ? "All Categories" : category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {services.length > 0 ? (
+                services.map((service) => (
                     <div key={service.id} className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
                       <Checkbox
                         id={service.id}
@@ -184,11 +235,14 @@ export default function BookingForm() {
                         onCheckedChange={() => handleServiceChange(service.id)}
                       />
                       <label htmlFor={service.id} className="font-medium leading-none flex-1 cursor-pointer">
-                        {service.name}
+                        {service.name} <span className="text-muted-foreground text-xs">({service.category})</span>
                       </label>
                       <div className="text-sm text-muted-foreground">${service.price}</div>
                     </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground">No services available for this category.</p>
+              )}
             </div>
           )}
 
@@ -208,6 +262,9 @@ export default function BookingForm() {
                   </Select>
                   {availableStylists.length === 0 && selectedServices.length > 0 && (
                     <p className="text-sm text-destructive text-center mt-4">No single stylist offers all selected services. Please adjust your selection.</p>
+                  )}
+                   {availableStylists.length === 0 && selectedServices.length === 0 && selectedCategory !== "all" && (
+                    <p className="text-sm text-muted-foreground text-center mt-4">No stylists found for the selected category.</p>
                   )}
             </div>
           )}
@@ -245,7 +302,7 @@ export default function BookingForm() {
                         <div>
                             <h4 className="font-semibold">Services</h4>
                             <ul className="list-disc list-inside">
-                            {services.filter(s => selectedServices.includes(s.id)).map(s => <li key={s.id}>{s.name}</li>)}
+                            {services.filter(s => selectedServices.includes(s.id)).map(s => <li key={s.id}>{s.name} <span className="text-muted-foreground text-xs">({s.category})</span></li>)}
                             </ul>
                         </div>
                          <div>

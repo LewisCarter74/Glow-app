@@ -35,15 +35,46 @@ async function authenticatedFetch(url: string, options: AuthenticatedFetchOption
   return response;
 }
 
-// Existing functions (now using raw fetch for public endpoints initially)
+// --- NEW/UPDATED INTERFACES ---
+interface Service {
+    id: string;
+    name: string;
+    description: string; // Added description field
+    price: number;
+    duration_minutes: number;
+    category: string;
+    imageUrl: string | null; // Added imageUrl field (allowing null)
+}
 
-export async function fetchStylists() {
+interface Stylist {
+    id: string;
+    user: {
+        first_name: string;
+        last_name: string;
+    };
+    specialties: string[]; // Now expected to hold categories, e.g., ["Hair", "Nails"]
+}
+
+interface AppointmentData {
+    service_ids: string[];
+    stylist_id: string;
+    appointment_date: string;
+    appointment_time: string;
+}
+
+// --- UPDATED API FUNCTIONS ---
+
+export async function fetchStylists(category?: string) {
   try {
-    const response = await fetch(`${BASE_URL}/stylists/`); // Use raw fetch
+    let url = `${BASE_URL}/stylists/`;
+    if (category) {
+      url += `?category=${encodeURIComponent(category)}`;
+    }
+    const response = await fetch(url); // Use raw fetch
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data: Stylist[] = await response.json();
     return data;
   } catch (error) {
     console.error("Error fetching stylists:", error);
@@ -58,7 +89,7 @@ export async function fetchStylistById(id: string) {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data: Stylist = await response.json();
     return data;
   } catch (error) {
     console.error(`Error fetching stylist with id ${id}:`, error);
@@ -211,13 +242,21 @@ export async function confirmPasswordReset(uid: string, token: string, new_passw
 }
 
 // Services Endpoints
-export async function fetchServices() {
+export async function fetchServices(filters?: { category?: string; min_price?: number; max_price?: number; min_duration?: number; max_duration?: number; popularity?: string; }) {
   try {
-    const response = await fetch(`${BASE_URL}/services/`);
+    let url = new URL(`${BASE_URL}/services/`);
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null) {
+          url.searchParams.append(key, String(value));
+        }
+      }
+    }
+    const response = await fetch(url.toString());
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data: Service[] = await response.json();
     return data;
   } catch (error) {
     console.error("Error fetching services:", error);
@@ -246,7 +285,7 @@ export async function fetchServiceById(id: string) {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
+    const data: Service = await response.json();
     return data;
   } catch (error) {
     console.error(`Error fetching service with id ${id}:`, error);
@@ -341,12 +380,7 @@ export async function fetchAppointments() {
   }
 }
 
-export async function createAppointment(appointmentData: {
-  service_ids: string[];
-  stylist_id: string;
-  appointment_date: string;
-  appointment_time: string;
-}) {
+export async function createAppointment(appointmentData: AppointmentData) {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/appointments/`, {
       method: 'POST',
@@ -619,39 +653,5 @@ export async function deleteSalonSetting(id: string) {
   } catch (error) {
     console.error(`Error deleting salon setting ${id}:`, error);
     throw error;
-  }
-}
-
-export async function testCreateAppointment() {
-  try {
-    const testAppointmentData = {
-      // Using simple string IDs as requested
-      service_ids: ["service_id_1", "service_id_2"], // Replace with actual simple string IDs from your database
-      stylist_id: "stylist_id_1", // Replace with an actual simple string ID
-      appointment_date: "2024-10-27",
-      appointment_time: "10:00",
-    };
-
-    const createdAppointment = await createAppointment(testAppointmentData);
-    console.log("Test appointment created:", createdAppointment);
-
-    const appointments = await fetchAppointments();
-    console.log("All appointments:", appointments);
-
-    // Check if the created appointment is in the list of appointments
-    const appointmentExists = appointments.some(
-      (appointment: any) =>
-        appointment.stylist_id === testAppointmentData.stylist_id &&
-        appointment.appointment_date === testAppointmentData.appointment_date &&
-        appointment.appointment_time === testAppointmentData.appointment_time
-    );
-
-    if (appointmentExists) {
-      console.log("Test passed: Appointment created successfully!");
-    } else {
-      console.error("Test failed: Appointment not found in the list of appointments.");
-    }
-  } catch (error) {
-    console.error("Test failed with error:", error);
   }
 }
