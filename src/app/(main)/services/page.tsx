@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState }'react';
+import { useEffect, useState } from 'react';
 import { fetchServices } from '@/lib/api';
 
 interface Service {
