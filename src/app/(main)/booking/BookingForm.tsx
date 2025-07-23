@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { add, format } from "date-fns";
-import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,8 +30,11 @@ interface Stylist {
         first_name: string;
         last_name: string;
     };
-    specialties: string[]; // Expected to hold categories, e.g., ["Hair", "Nails", "Beauty"]
+    specialties: string[]; 
 }
+
+// Define the categories
+const CATEGORIES = ["Hair", "Nails", "Beauty"];
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -42,33 +45,21 @@ export default function BookingForm() {
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all"); // State for category filter
-  const [searchQuery, setSearchQuery] = useState<string>(""); // New state for search query
 
-  // Fetch services and stylists based on selected category and search query
   useEffect(() => {
     const getServicesAndStylists = async () => {
+      if (!selectedCategory) return;
       try {
-        const serviceFilters: { [key: string]: any } = {};
-        if (selectedCategory !== "all") {
-          serviceFilters.category = selectedCategory;
-        }
-        if (searchQuery) {
-          serviceFilters.search = searchQuery; // Pass search query to API
-        }
-
-        const fetchedServices = await fetchServices(serviceFilters);
+        const fetchedServices = await fetchServices({ category: selectedCategory });
         setServices(fetchedServices);
-        console.log("Fetched Services:", fetchedServices);
 
-        const stylistCategory = selectedCategory !== "all" ? selectedCategory : undefined;
-        const fetchedStylists = await fetchStylists(stylistCategory);
+        const fetchedStylists = await fetchStylists(selectedCategory);
         setStylists(fetchedStylists);
-        console.log("Fetched Stylists:", fetchedStylists);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -79,56 +70,22 @@ export default function BookingForm() {
     };
 
     getServicesAndStylists();
-  }, [selectedCategory, searchQuery, toast]); // Re-fetch when category or search query changes
-
-  useEffect(() => {
-    console.log("Selected Services:", selectedServices);
-  }, [selectedServices]);
-
-  const allCategories = useMemo(() => {
-    const categories = new Set<string>();
-    services.forEach(service => categories.add(service.category));
-    // Ensure stylist specialties are treated as categories for the dropdown
-    stylists.forEach(stylist => stylist.specialties.forEach(spec => categories.add(spec)));
-    return ["all", ...Array.from(categories).sort()];
-  }, [services, stylists]);
+  }, [selectedCategory, toast]);
 
   const availableStylists = useMemo(() => {
-    console.log("Recalculating available stylists...");
-    console.log("Current stylists state:", stylists);
-    console.log("Current services state:", services);
-
     if (selectedServices.length === 0) {
-      console.log("No services selected, returning all stylists (or filtered by general category).");
-      // If a category is selected, return only stylists in that category
-      if (selectedCategory !== "all") {
-        return stylists.filter(stylist => 
-          stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(selectedCategory.toLowerCase().trim())
-        );
-      }
       return stylists;
     }
-
-    // Get categories of selected services
     const selectedServiceCategories = new Set(services
       .filter(s => selectedServices.includes(s.id))
       .map(s => s.category.toLowerCase().trim())
     );
-
-    console.log("Selected Service Categories (normalized):", Array.from(selectedServiceCategories));
-
-    // Filter stylists who specialize in ALL categories of the selected services
-    const filteredStylists = stylists.filter(stylist => {
-      const normalizedStylistSpecialties = stylist.specialties.map(spec => spec.toLowerCase().trim());
-      return Array.from(selectedServiceCategories).every(serviceCat => {
-        const includesCategory = normalizedStylistSpecialties.includes(serviceCat);
-        console.log(`Stylist ${stylist.user.first_name} ${stylist.user.last_name} has category '${serviceCat}': ${includesCategory}`);
-        return includesCategory;
-      });
-    });
-    console.log("Filtered Available Stylists:", filteredStylists);
-    return filteredStylists;
-  }, [selectedServices, stylists, services, selectedCategory]);
+    return stylists.filter(stylist => 
+      Array.from(selectedServiceCategories).every(serviceCat => 
+        stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(serviceCat)
+      )
+    );
+  }, [selectedServices, stylists, services]);
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
@@ -143,20 +100,17 @@ export default function BookingForm() {
         router.push('/login');
         return;
     }
-
     if (!selectedDate || !selectedTime || selectedServices.length === 0 || !selectedStylistId) {
         toast({ variant: "destructive", description: "Please fill out all fields." });
         return;
     }
-    
     try {
         await createAppointment({
-            service_ids: selectedServices, // Pass the array of selected service IDs
+            service_ids: selectedServices,
             stylist_id: selectedStylistId,
             appointment_date: format(selectedDate, "yyyy-MM-dd"),
             appointment_time: selectedTime,
         });
-
         toast({
             title: "Booking Confirmed!",
             description: "Your appointment has been successfully booked.",
@@ -173,19 +127,22 @@ export default function BookingForm() {
   }
 
   const nextStep = () => {
-    if (step === 1 && selectedServices.length === 0) {
+    if (step === 1 && !selectedCategory) {
+        toast({ variant: "destructive", description: "Please select a category."});
+        return;
+    }
+    if (step === 2 && selectedServices.length === 0) {
         toast({ variant: "destructive", description: "Please select at least one service."});
         return;
     }
-    if (step === 2 && availableStylists.length > 0 && selectedStylistId === 'any') {
-      // If there are available stylists, but the user hasn't picked one, prompt them.
-      // This is optional, as 'any' is a valid choice.
+    if (step === 3 && availableStylists.length > 0 && selectedStylistId === 'any') {
+      // Optional: prompt user to select a stylist
     }
-    if (step === 3 && (!selectedDate || !selectedTime)) {
+    if (step === 4 && (!selectedDate || !selectedTime)) {
         toast({ variant: "destructive", description: "Please select a date and time."});
         return;
     }
-    if (step < 4) {
+    if (step < 5) {
       setStep((prev) => prev + 1);
     } else {
       handleBookingConfirmation();
@@ -199,7 +156,6 @@ export default function BookingForm() {
         ? prev.filter(id => id !== serviceId)
         : [...prev, serviceId]
     );
-    // Reset stylist selection when services change or category changes
     setSelectedStylistId("any");
   }
 
@@ -208,10 +164,11 @@ export default function BookingForm() {
       <CardHeader>
         <CardTitle className="text-center text-3xl font-headline">Create Your Appointment</CardTitle>
         <CardDescription className="text-center">
-            Step {step} of 4: {
-                step === 1 ? "Select Services" : 
-                step === 2 ? "Choose a Stylist" :
-                step === 3 ? "Pick a Date & Time" : "Confirm Your Booking"
+            Step {step} of 5: {
+                step === 1 ? "Select a Category" :
+                step === 2 ? "Select Services" : 
+                step === 3 ? "Choose a Stylist" :
+                step === 4 ? "Pick a Date & Time" : "Confirm Your Booking"
             }
         </CardDescription>
       </CardHeader>
@@ -219,40 +176,20 @@ export default function BookingForm() {
         <div>
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
-
-              {/* Filters Section */}
-              <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Category Filter */}
-                <div>
-                  <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Category:</label>
-                  <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allCategories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category === "all" ? "All Categories" : category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Search Bar */}
-                <div>
-                  <label htmlFor="service-search" className="block text-sm font-medium text-gray-700 mb-1">Search Services:</label>
-                  <Input
-                    id="service-search"
-                    type="text"
-                    placeholder="Search by name or category..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
+              <h3 className="text-xl font-semibold flex items-center gap-2"><Sparkles/> Select a Category</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {CATEGORIES.map(category => (
+                  <Button key={category} variant={selectedCategory === category ? "default" : "outline"} onClick={() => setSelectedCategory(category)} className="p-8 text-lg">
+                    {category}
+                  </Button>
+                ))}
               </div>
+            </div>
+          )}
 
+          {step === 2 && (
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold flex items-center gap-2"><Scissors/> Select Services</h3>
               {services.length > 0 ? (
                 services.map((service) => (
                     <div key={service.id} className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
@@ -262,18 +199,18 @@ export default function BookingForm() {
                         onCheckedChange={() => handleServiceChange(service.id)}
                       />
                       <label htmlFor={service.id} className="font-medium leading-none flex-1 cursor-pointer">
-                        {service.name} <span className="text-muted-foreground text-xs">({service.category})</span>
+                        {service.name}
                       </label>
                       <div className="text-sm text-muted-foreground">${service.price}</div>
                     </div>
                 ))
               ) : (
-                <p className="text-center text-muted-foreground">No services available for the selected category or search term.</p>
+                <p className="text-center text-muted-foreground">No services available for this category.</p>
               )}
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2"><User /> Choose a Stylist</h3>
                 <Select onValueChange={setSelectedStylistId} defaultValue={selectedStylistId}>
@@ -290,13 +227,10 @@ export default function BookingForm() {
                   {availableStylists.length === 0 && selectedServices.length > 0 && (
                     <p className="text-sm text-destructive text-center mt-4">No single stylist offers all selected services. Please adjust your selection.</p>
                   )}
-                   {availableStylists.length === 0 && selectedServices.length === 0 && selectedCategory !== "all" && (
-                    <p className="text-sm text-muted-foreground text-center mt-4">No stylists found for the selected category.</p>
-                  )}
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold flex items-center gap-2"><CalendarIcon /> Pick a Date</h3>
@@ -321,7 +255,7 @@ export default function BookingForm() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-6">
                 <h3 className="text-xl font-semibold flex items-center gap-2"><Wallet /> Confirmation</h3>
                 <Card className="bg-secondary/50">
@@ -329,7 +263,7 @@ export default function BookingForm() {
                         <div>
                             <h4 className="font-semibold">Services</h4>
                             <ul className="list-disc list-inside">
-                            {services.filter(s => selectedServices.includes(s.id)).map(s => <li key={s.id}>{s.name} <span className="text-muted-foreground text-xs">({s.category})</span></li>)}
+                            {services.filter(s => selectedServices.includes(s.id)).map(s => <li key={s.id}>{s.name}</li>)}
                             </ul>
                         </div>
                          <div>
@@ -359,8 +293,18 @@ export default function BookingForm() {
               </Button>
             )}
             
-            <Button type="button" onClick={nextStep} className="ml-auto" disabled={(step === 1 && selectedServices.length === 0) || (step === 3 && !selectedTime) || (step === 2 && availableStylists.length === 0 && selectedServices.length > 0)}>
-              {step < 4 ? 'Next' : user ? 'Confirm Booking' : 'Login to Book'} <ArrowRight className="ml-2 h-4 w-4" />
+            <Button 
+                type="button" 
+                onClick={nextStep} 
+                className="ml-auto" 
+                disabled={
+                    (step === 1 && !selectedCategory) ||
+                    (step === 2 && selectedServices.length === 0) || 
+                    (step === 4 && !selectedTime) || 
+                    (step === 3 && availableStylists.length === 0 && selectedServices.length > 0)
+                }
+            >
+              {step < 5 ? 'Next' : user ? 'Confirm Booking' : 'Login to Book'} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
