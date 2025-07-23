@@ -53,7 +53,7 @@ export default function BookingForm() {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -102,14 +102,14 @@ export default function BookingForm() {
     }
     const selectedServiceCategories = new Set(services
       .filter(s => selectedServices.includes(s.id))
-      .map(s => s.category.toLowerCase().trim())
+      .map(s => (s.category ?? "").toLowerCase().trim())
     );
     return stylists.filter(stylist => {
         if (!stylist.specialties || !Array.isArray(stylist.specialties)) {
             return false;
         }
         return Array.from(selectedServiceCategories).every(serviceCat => 
-            stylist.specialties.map(spec => spec.toLowerCase().trim()).includes(serviceCat)
+            stylist.specialties.map(spec => (spec ?? "").toLowerCase().trim()).includes(serviceCat)
         )
     });
   }, [selectedServices, stylists, services]);
