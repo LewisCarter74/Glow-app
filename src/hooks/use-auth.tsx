@@ -1,106 +1,133 @@
-
 'use client';
 
 import {
-  useState,
   createContext,
   useContext,
-  type ReactNode,
-  useCallback,
+  useState,
   useEffect,
+  ReactNode,
 } from 'react';
-import { loginUser as apiLoginUser, logoutUser as apiLogoutUser, fetchUserProfile as apiFetchUserProfile } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+  fetchUserProfile,
+} from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Define the User type based on your UserSerializer response
+// Define the User type
 interface User {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
-  phone_number: string;
-  role: string;
-  is_staff: boolean;
-  is_superuser: boolean;
-  date_joined: string;
-  name: string;
-  profile_image_url: string | null;
+  role: 'customer' | 'stylist' | 'admin';
+  referral_code?: string;
 }
 
-// The shape of the auth context
+// Define the AuthContext type
 interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (userData: object) => Promise<void>;
   logout: () => void;
-  isLoading: boolean; // Indicates if auth state is being loaded (e.g., from localStorage)
-  isAuthenticated: boolean; // Convenience derived state
+  reloadUser: () => Promise<void>;
 }
 
-// Create the auth context
+// Create the AuthContext
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// The AuthProvider component
-export function AuthProvider({ children }: { children: ReactNode }) {
+// Define the AuthProvider props
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+// Create the AuthProvider component
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start as true, as we'll load from local storage
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-  // On initial mount, try to load user from local storage
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const storedUser = localStorage.getItem('user');
-        const accessToken = localStorage.getItem('accessToken');
-
-        if (storedUser && accessToken) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Failed to load user from local storage:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUser();
-  }, []);
-
-  const login = useCallback(async (email: string, password: string) => {
+  const loadUser = async () => {
     setIsLoading(true);
     try {
-      const userData = await apiLoginUser(email, password);
-      setUser(userData);
+      // Check for access token to determine if user might be logged in
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        // Attempt to fetch user profile
+        const userProfile = await fetchUserProfile();
+        setUser(userProfile);
+      }
     } catch (error) {
-      setUser(null); // Ensure user is null on login failure
-      throw error; // Re-throw to be caught by UI components
+      // This can happen if the token is expired/invalid.
+      // It's a normal part of the flow, so we just clear the user.
+      console.warn('Could not load user profile, logging out.', error);
+      setUser(null);
+      // Clean up invalid token from storage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadUser();
   }, []);
 
-  const logout = useCallback(() => {
-    apiLogoutUser(); // Clear tokens from local storage
-    setUser(null); // Clear user state
-    // Force a full page reload and redirect to the homepage
-    window.location.href = '/'; 
-  }, []);
+  const login = async (email: string, password: string) => {
+    const loggedInUser = await loginUser(email, password);
+    setUser(loggedInUser);
+  };
 
-  const isAuthenticated = !!user; // Derived state
+  const register = async (userData: object) => {
+    await registerUser(userData);
+    // After registration, the user still needs to log in
+  };
+
+  const logout = () => {
+    logoutUser();
+    setUser(null);
+    // Redirect to login page after logout
+    router.push('/login');
+  };
+
+  const reloadUser = async () => {
+    await loadUser();
+  };
 
   const value = {
     user,
-    login,
-    logout,
+    isAuthenticated: !!user,
     isLoading,
-    isAuthenticated,
+    login,
+    register,
+    logout,
+    reloadUser,
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="space-y-4">
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="space-y-2">
+                <Skeleton className="h-4 w-[250px]" />
+                <Skeleton className="h-4 w-[200px]" />
+            </div>
+        </div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Custom hook to use the auth context
-export const useAuth = (): AuthContextType => {
+// Create the useAuth hook
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

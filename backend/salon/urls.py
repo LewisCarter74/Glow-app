@@ -1,17 +1,11 @@
 from django.urls import path
 from .views import (
     RegisterView, LoginView, UserProfileView, PasswordResetView, PasswordResetConfirmView,
-    ServiceListCreateView, ServiceDetailView,
-    StylistListCreateView, StylistDetailView,
-    AppointmentListCreateView, AppointmentDetailView,
-    ReviewListCreateView, ReviewDetailView,
-    PromotionListCreateView, PromotionDetailView,
-    LoyaltyPointView, LoyaltyPointRedeemView,
-    AnalyticsView,
-    SalonSettingListCreateView, SalonSettingDetailView,
-    AIStyleRecommendationView,
-    CategoryListCreateView, CategoryDetailView,
-    AppointmentAvailabilityView
+    CategoryListCreateView, CategoryDetailView, ServiceListCreateView, ServiceDetailView,
+    StylistListCreateView, StylistDetailView, AppointmentListCreateView, AppointmentDetailView,
+    ReviewListCreateView, ReviewDetailView, PromotionListCreateView, PromotionDetailView,
+    LoyaltyPointView, LoyaltyPointRedeemView, AnalyticsView, SalonSettingListCreateView,
+    SalonSettingDetailView, AIStyleRecommendationView, AppointmentAvailabilityView, ReferralView
 )
 
 urlpatterns = [
@@ -21,8 +15,8 @@ urlpatterns = [
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-
-    # Categories (New)
+    
+    # Categories
     path('categories/', CategoryListCreateView.as_view(), name='category-list-create'),
     path('categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
 
@@ -48,16 +42,19 @@ urlpatterns = [
     path('promotions/<int:pk>/', PromotionDetailView.as_view(), name='promotion-detail'),
 
     # Loyalty Points
-    path('loyalty-points/', LoyaltyPointView.as_view(), name='loyalty-point-detail'),
-    path('loyalty-points/redeem/', LoyaltyPointRedeemView.as_view(), name='loyalty-point-redeem'), 
+    path('loyalty-points/', LoyaltyPointView.as_view(), name='loyalty-point-view'),
+    path('loyalty-points/redeem/', LoyaltyPointRedeemView.as_view(), name='loyalty-point-redeem'),
+    
+    # Referrals
+    path('referrals/', ReferralView.as_view(), name='referral-view'),
 
     # Analytics
-    path('analytics/', AnalyticsView.as_view(), name='analytics'),
+    path('analytics/', AnalyticsView.as_view(), name='analytics-view'),
 
     # Salon Settings
     path('salon-settings/', SalonSettingListCreateView.as_view(), name='salon-setting-list-create'),
     path('salon-settings/<int:pk>/', SalonSettingDetailView.as_view(), name='salon-setting-detail'),
 
-    # AI Features
-    path('ai-recommend/', AIStyleRecommendationView.as_view(), name='ai-style-recommendation'),
+    # AI
+    path('ai/style-recommendation/', AIStyleRecommendationView.as_view(), name='ai-style-recommendation'),
 ]

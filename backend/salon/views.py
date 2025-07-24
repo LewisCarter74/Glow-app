@@ -13,14 +13,13 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
-
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, Category
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, Category, Referral
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer, ServiceSerializer,
     StylistSerializer, AppointmentSerializer, ReviewSerializer, PromotionSerializer,
     LoyaltyPointSerializer, SalonSettingSerializer, PasswordResetSerializer,
     PasswordResetConfirmSerializer, AIStyleRecommendationInputSerializer,
-    AIRecommendationResponseSerializer, CategorySerializer
+    AIRecommendationResponseSerializer, CategorySerializer, ReferralSerializer
 )
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin, IsStylistOrAdmin, IsCustomerOrAdmin
 
@@ -34,6 +33,18 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         if user.role == 'customer':
             LoyaltyPoint.objects.get_or_create(customer=user, defaults={'points': 0})
+        
+        referral_code = self.request.data.get('referral_code')
+        if referral_code:
+            try:
+                referrer = User.objects.get(referral_code=referral_code)
+                Referral.objects.create(referrer=referrer, referred_user=user)
+                #Add points to referrer
+                loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=referrer)
+                loyalty_points.points += 100
+                loyalty_points.save()
+            except User.DoesNotExist:
+                pass
 
 
 class LoginView(views.APIView):
@@ -196,9 +207,26 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         customer = self.request.user
         if customer.role != 'customer':
             raise serializers.ValidationError("Only customers can create appointments.")
+        
         services = serializer.validated_data['services']
+        total_price = sum(s.price for s in services)
         total_duration = sum(s.duration_minutes for s in services)
-        serializer.save(customer=customer, duration_minutes=total_duration, status='pending')
+        
+        # Check for first-time customer
+        is_first_appointment = not Appointment.objects.filter(customer=customer).exists()
+        discount = 0
+        if is_first_appointment:
+            discount = total_price * 0.20 # 20% discount
+            
+        final_price = total_price - discount
+            
+        serializer.save(
+            customer=customer, 
+            duration_minutes=total_duration,
+            discount=discount,
+            final_price=final_price,
+            status='pending'
+        )
 
 
 class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -371,7 +399,7 @@ class AnalyticsView(views.APIView):
         ).values('services__category__name').annotate(count=Count('services__category__name')).order_by('-count')
         total_revenue = Appointment.objects.filter(
             status='completed'
-        ).aggregate(total_revenue=Sum(F('services__price')))
+        ).aggregate(total_revenue=Sum('final_price'))
         return Response({
             'monthly_customers': monthly_customers,
             'annual_customers': annual_customers,
@@ -519,3 +547,10 @@ class AppointmentAvailabilityView(views.APIView):
             current_time_dt += timedelta(minutes=time_slot_interval)
 
         return Response(sorted(list(set(available_slots))), status=status.HTTP_200_OK)
+
+class ReferralView(generics.ListAPIView):
+    serializer_class = ReferralSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return Referral.objects.filter(referrer=self.request.user)

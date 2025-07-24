@@ -84,7 +84,7 @@ export function Header() {
             <DropdownMenuContent align="end">
               {user ? (
                 <>
-                  <DropdownMenuLabel>Hi, {user.name.split(' ')[0]}</DropdownMenuLabel>
+                  <DropdownMenuLabel>Hi, {user.first_name}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleNavigation('/account')}>
                     <LayoutDashboard className="mr-2 h-4 w-4" /> My Account
