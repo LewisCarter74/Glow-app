@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category, Referral
 from django.contrib.auth import authenticate
 from django.db.models import Avg, Q, Count
 from django.db.models.functions import ExtractMinute
@@ -402,3 +402,11 @@ class AIStyleRecommendationOutputSerializer(serializers.Serializer):
 
 class AIRecommendationResponseSerializer(serializers.Serializer):
     recommendations = AIStyleRecommendationOutputSerializer(many=True)
+
+class ReferralSerializer(serializers.ModelSerializer):
+    referred_user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Referral
+        fields = ('id', 'referrer', 'referred_user', 'created_at')
+        read_only_fields = ('id', 'referrer', 'referred_user', 'created_at')
