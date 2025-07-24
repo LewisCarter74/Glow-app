@@ -11,8 +11,8 @@ import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet, Spa
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { createAppointment, fetchServices, fetchStylists, fetchCategories } from "@/lib/api";
-import { Input } from "@/components/ui/input"; 
+import { createAppointment, fetchServices, fetchStylists, fetchCategories, fetchAvailableSlots } from "@/lib/api";
+import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
 
 interface Service {
@@ -48,6 +48,8 @@ export default function BookingForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [isLoadingTimes, setIsLoadingTimes] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -100,11 +102,34 @@ export default function BookingForm() {
     getServicesAndStylists();
   }, [selectedCategory, debouncedSearchTerm, toast]);
 
+  useEffect(() => {
+      const getAvailableTimes = async () => {
+          if (selectedDate && selectedServices.length > 0) {
+              setIsLoadingTimes(true);
+              setAvailableTimes([]); // Clear previous times
+              try {
+                  const date = format(selectedDate, "yyyy-MM-dd");
+                  const times = await fetchAvailableSlots(date, selectedServices);
+                  setAvailableTimes(times);
+              } catch (error) {
+                  console.error("Error fetching available times:", error);
+                  toast({
+                      variant: "destructive",
+                      description: "Could not load available times. Please try again."
+                  });
+              } finally {
+                  setIsLoadingTimes(false);
+              }
+          } else {
+              setAvailableTimes([]);
+          }
+      };
+
+      getAvailableTimes();
+  }, [selectedDate, selectedServices, toast]);
+
+
   const availableStylists = useMemo(() => {
-    // The `stylists` state is already filtered by the selected category
-    // in the `useEffect` hook. Per the requirement, any stylist in the
-    // selected category can perform any service in that category.
-    // Therefore, we return all stylists fetched for that category.
     return stylists;
   }, [stylists]);
 
@@ -121,14 +146,14 @@ export default function BookingForm() {
         router.push('/login');
         return;
     }
-    if (!selectedDate || !selectedTime || selectedServices.length === 0 || !selectedStylistId) {
+    if (!selectedDate || !selectedTime || selectedServices.length === 0) {
         toast({ variant: "destructive", description: "Please fill out all fields." });
         return;
     }
     try {
         await createAppointment({
             service_ids: selectedServices,
-            stylist_id: selectedStylistId,
+            stylist_id: selectedStylistId, // 'any' is handled by the backend
             appointment_date: format(selectedDate, "yyyy-MM-dd"),
             appointment_time: selectedTime,
         });
@@ -156,9 +181,6 @@ export default function BookingForm() {
         toast({ variant: "destructive", description: "Please select at least one service."});
         return;
     }
-    if (step === 3 && availableStylists.length > 0 && selectedStylistId === 'any') {
-      // Optional: prompt user to select a stylist
-    }
     if (step === 4 && (!selectedDate || !selectedTime)) {
         toast({ variant: "destructive", description: "Please select a date and time."});
         return;
@@ -175,6 +197,7 @@ export default function BookingForm() {
     setSelectedCategory(categoryName);
     setSelectedServices([]);
     setSelectedStylistId("any");
+    setSelectedTime("");
   };
 
   const handleServiceChange = (serviceId: string) => {
@@ -183,7 +206,12 @@ export default function BookingForm() {
         ? prev.filter(id => id !== serviceId)
         : [...prev, serviceId]
     );
-    setSelectedStylistId("any");
+    setSelectedTime(""); // Reset time when services change
+  }
+  
+  const handleDateChange = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setSelectedTime(""); // Reset time when date changes
   }
 
   return (
@@ -272,20 +300,28 @@ export default function BookingForm() {
                     <Calendar
                       mode="single"
                       selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      disabled={(date) => date < new Date() || date > add(new Date(), {days: 60})}
+                      onSelect={handleDateChange}
+                      disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || date > add(new Date(), {days: 60})}
                       className="rounded-md border"
                     />
               </div>
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold flex items-center gap-2"><Clock /> Pick a Time</h3>
-                <div className="grid grid-cols-3 gap-2">
-                {["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"].map(time => (
-                    <Button key={time} type="button" variant={selectedTime === time ? "default" : "outline"} onClick={() => setSelectedTime(time)}>
-                    {time}
-                    </Button>
-                ))}
-                </div>
+                {selectedServices.length === 0 ? (
+                    <p className="text-muted-foreground">Please select a service first.</p>
+                ) : isLoadingTimes ? (
+                  <p className="text-muted-foreground">Loading available times...</p>
+                ) : availableTimes.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                    {availableTimes.map(time => (
+                        <Button key={time} type="button" variant={selectedTime === time ? "default" : "outline"} onClick={() => setSelectedTime(time)}>
+                        {time}
+                        </Button>
+                    ))}
+                    </div>
+                ): (
+                    <p className="text-muted-foreground">No available times for the selected date. Please try another day.</p>
+                )}
               </div>
             </div>
           )}
@@ -333,10 +369,9 @@ export default function BookingForm() {
                 onClick={nextStep} 
                 className="ml-auto" 
                 disabled={
-                    (step === 1 && !selectedCategory) ||
                     (step === 2 && selectedServices.length === 0) || 
                     (step === 4 && !selectedTime) || 
-                    (step === 3 && availableStylists.length === 0 && selectedServices.length > 0)
+                    (isLoadingTimes)
                 }
             >
               {step < 5 ? 'Next' : user ? 'Confirm Booking' : 'Login to Book'} <ArrowRight className="ml-2 h-4 w-4" />

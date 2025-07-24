@@ -467,3 +467,61 @@ class AIStyleRecommendationView(views.APIView):
         response_serializer.is_valid(raise_exception=True)
 
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+class AppointmentAvailabilityView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        date_str = request.query_params.get('date')
+        service_ids_str = request.query_params.get('service_ids')
+
+        if not date_str or not service_ids_str:
+            return Response({"detail": "Date and service IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            service_ids = [int(sid) for sid in service_ids_str.split(',')]
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid date or service ID format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        services = Service.objects.filter(id__in=service_ids)
+        if len(services) != len(service_ids):
+            return Response({"detail": "One or more services not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        total_duration = sum(s.duration_minutes for s in services)
+        required_categories = {s.category for s in services}
+
+        available_stylists = Stylist.objects.filter(
+            is_available=True,
+            specialties__in=list(required_categories)
+        ).distinct()
+
+        salon_start_time = time(9, 0)
+        salon_end_time = time(18, 0)
+        time_slot_interval = 30 
+        
+        available_slots = []
+        current_time = datetime.combine(appointment_date, salon_start_time)
+        end_of_day = datetime.combine(appointment_date, salon_end_time)
+
+        while current_time < end_of_day:
+            slot_time = current_time.time()
+            
+            for stylist in available_stylists:
+                is_slot_available_for_stylist = not Appointment.objects.filter(
+                    stylist=stylist,
+                    appointment_date=appointment_date,
+                    appointment_time__lt=(datetime.combine(appointment_date, slot_time) + timedelta(minutes=total_duration)).time(),
+                    status__in=['pending', 'approved', 'rescheduled']
+                ).annotate(
+                    end_time=F('appointment_time') + F('duration_minutes') * timedelta(minutes=1)
+                ).filter(
+                    end_time__gt=slot_time
+                ).exists()
+
+                if is_slot_available_for_stylist:
+                    available_slots.append(slot_time.strftime('%H:%M'))
+                    break 
+
+            current_time += timedelta(minutes=time_slot_interval)
+
+        return Response(sorted(list(set(available_slots))), status=status.HTTP_200_OK)

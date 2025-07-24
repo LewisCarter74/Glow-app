@@ -1,6 +1,5 @@
-const BASE_URL = 'http://127.0.0.1:8000/api'; // Changed to direct port 8000 for testing as requested
+const BASE_URL = 'http://127.0.0.1:8000/api'; 
 
-// Helper to get access token for authenticated requests
 const getAccessToken = () => {
   return localStorage.getItem('accessToken');
 };
@@ -9,11 +8,10 @@ interface AuthenticatedFetchOptions extends RequestInit {
   headers?: Record<string, string>;
 }
 
-// Helper for authenticated fetch requests
 async function authenticatedFetch(url: string, options: AuthenticatedFetchOptions = {}) {
   const accessToken = getAccessToken();
   const headers: Record<string, string> = {
-    ...(options.headers || {}), // Ensure headers object exists
+    ...(options.headers || {}),
     'Content-Type': 'application/json',
   };
 
@@ -24,7 +22,6 @@ async function authenticatedFetch(url: string, options: AuthenticatedFetchOption
   const response = await fetch(url, { ...options, headers });
 
   if (!response.ok) {
-    // Basic error handling for unauthorized requests
     if (response.status === 401 || response.status === 403) {
       console.warn('Authentication error: Access token might be expired or invalid.');
     }
@@ -35,7 +32,6 @@ async function authenticatedFetch(url: string, options: AuthenticatedFetchOption
   return response;
 }
 
-// --- NEW/UPDATED INTERFACES ---
 interface Service {
     id: string;
     name: string;
@@ -57,7 +53,7 @@ interface Stylist {
         first_name: string;
         last_name: string;
     };
-    specialties: string[]; // Expected to hold categories, e.g., ["Hair", "Nails", "Beauty"]
+    specialties: string[];
 }
 
 interface AppointmentData {
@@ -66,8 +62,6 @@ interface AppointmentData {
     appointment_date: string;
     appointment_time: string;
 }
-
-// --- UPDATED API FUNCTIONS ---
 
 export async function fetchCategories(): Promise<Category[]> {
   try {
@@ -89,7 +83,7 @@ export async function fetchStylists(category?: string) {
     if (category) {
       url += `?category=${encodeURIComponent(category)}`;
     }
-    const response = await fetch(url); // Use raw fetch
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -102,7 +96,6 @@ export async function fetchStylists(category?: string) {
 }
 
 export async function fetchStylistById(id: string) {
-  // This might still need authentication depending on view permissions
   try {
     const response = await fetch(`${BASE_URL}/stylists/${id}/`); 
     if (!response.ok) {
@@ -118,7 +111,7 @@ export async function fetchStylistById(id: string) {
 
 export async function fetchPromotions() {
   try {
-    const response = await fetch(`${BASE_URL}/promotions/`); // Use raw fetch
+    const response = await fetch(`${BASE_URL}/promotions/`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -129,9 +122,6 @@ export async function fetchPromotions() {
     return [];
   }
 }
-
-
-// Authentication Functions (already using fetch or authenticatedFetch correctly)
 
 export async function registerUser(userData: object) {
   try {
@@ -211,7 +201,6 @@ export const logoutUser = () => {
   console.log('localStorage after logout - user:', localStorage.getItem('user'));
 };
 
-// Password Reset Functions
 export async function requestPasswordReset(email: string) {
   try {
     const response = await fetch(`${BASE_URL}/password-reset/`, {
@@ -260,8 +249,6 @@ export async function confirmPasswordReset(uid: string, token: string, new_passw
   }
 }
 
-// Services Endpoints
-// Updated filters to include a 'search' string
 export async function fetchServices(filters?: { category?: string; search?: string; }) {
   try {
     let url = new URL(`${BASE_URL}/services/`);
@@ -341,7 +328,6 @@ export async function deleteService(id: string) {
   }
 }
 
-// Stylists Endpoints
 export async function createStylist(stylistData: object) {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/stylists/`, {
@@ -385,7 +371,6 @@ export async function deleteStylist(id: string) {
   }
 }
 
-// Appointments Endpoints
 export async function fetchAppointments() {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/appointments/`);
@@ -457,7 +442,6 @@ export async function deleteAppointment(id: string) {
   }
 }
 
-// Reviews Endpoints
 export async function fetchReviews() {
   try {
     const response = await fetch(`${BASE_URL}/reviews/`);
@@ -489,7 +473,7 @@ export async function createReview(reviewData: object) {
 
 export async function fetchReviewById(id: string) {
   try {
-    const response = await authenticatedFetch(`${BASE_URL}/reviews/${id}/`); // Assuming reviews by ID might require auth
+    const response = await authenticatedFetch(`${BASE_URL}/reviews/${id}/`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -529,7 +513,6 @@ export async function deleteReview(id: string) {
   }
 }
 
-// Promotions Endpoints
 export async function createPromotion(promotionData: object) {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/promotions/`, {
@@ -573,7 +556,6 @@ export async function deletePromotion(id: string) {
   }
 }
 
-// Loyalty Points Endpoints
 export async function getLoyaltyPoints() {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/loyalty-points/`);
@@ -603,7 +585,6 @@ export async function redeemLoyaltyPoints(redeemData: { amount: number }) {
   }
 }
 
-// Analytics Endpoints
 export async function fetchAnalytics() {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/analytics/`);
@@ -618,7 +599,6 @@ export async function fetchAnalytics() {
   }
 }
 
-// Salon Settings Endpoints
 export async function fetchSalonSettings() {
   try {
     const response = await authenticatedFetch(`${BASE_URL}/salon-settings/`);
@@ -674,4 +654,24 @@ export async function deleteSalonSetting(id: string) {
     console.error(`Error deleting salon setting ${id}:`, error);
     throw error;
   }
+}
+
+export async function fetchAvailableSlots(date: string, serviceIds: string[]): Promise<string[]> {
+    if (!date || serviceIds.length === 0) {
+        return [];
+    }
+    try {
+        const url = new URL(`${BASE_URL}/appointments/availability/`);
+        url.searchParams.append('date', date);
+        url.searchParams.append('service_ids', serviceIds.join(','));
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: string[] = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error fetching available slots:", error);
+        return [];
+    }
 }

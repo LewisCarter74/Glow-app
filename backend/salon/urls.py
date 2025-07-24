@@ -10,7 +10,8 @@ from .views import (
     AnalyticsView,
     SalonSettingListCreateView, SalonSettingDetailView,
     AIStyleRecommendationView,
-    CategoryListCreateView, CategoryDetailView # Import new category views
+    CategoryListCreateView, CategoryDetailView,
+    AppointmentAvailabilityView
 )
 
 urlpatterns = [
@@ -33,12 +34,10 @@ urlpatterns = [
     path('stylists/', StylistListCreateView.as_view(), name='stylist-list-create'),
     path('stylists/<int:pk>/', StylistDetailView.as_view(), name='stylist-detail'),
 
-    # Removed 'stylists/available/' as it's not explicitly used after category changes
-    # path('stylists/available/', AvailableStylistsView.as_view(), name='available-stylists'),
-
     # Appointments
     path('appointments/', AppointmentListCreateView.as_view(), name='appointment-list-create'),
     path('appointments/<int:pk>/', AppointmentDetailView.as_view(), name='appointment-detail'),
+    path('appointments/availability/', AppointmentAvailabilityView.as_view(), name='appointment-availability'),
 
     # Reviews
     path('reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
