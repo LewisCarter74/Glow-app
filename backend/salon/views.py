@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status, views
+from rest_framework import generics, permissions, status, views, serializers
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, login
@@ -49,7 +49,7 @@ class LoginView(views.APIView):
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
-            'user': UserSerializer(user).data,
+            'user': UserSerializer(user, context={'request': request}).data,
         }, status=status.HTTP_200_OK)
 
 
@@ -136,7 +136,7 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['price', 'duration_minutes', 'average_rating']
 
     def get_queryset(self):
-        queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('appointment__review__rating'))
+        queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('review__rating'))
         category_name = self.request.query_params.get('category', None)
         if category_name is not None:
             queryset = queryset.filter(category__name__iexact=category_name)
@@ -207,6 +207,7 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
         user = self.request.user
+        
         if user.role == 'customer':
             if instance.customer != user:
                 raise permissions.PermissionDenied("You do not have permission to modify this appointment.")
@@ -220,6 +221,7 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
                 total_duration = sum(s.duration_minutes for s in new_services)
                 serializer.validated_data['duration_minutes'] = total_duration
             serializer.save()
+        
         elif user.role in ['stylist', 'admin']:
             if user.role == 'stylist':
                 try:
@@ -228,14 +230,22 @@ class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
                         raise permissions.PermissionDenied("You do not have permission to modify this appointment.")
                 except Stylist.DoesNotExist:
                     raise permissions.PermissionDenied("Stylist profile not found.")
-            serializer.save()
-            if serializer.instance.status == 'completed' and instance.status != 'completed':
-                service_price = sum(service.price for service in serializer.instance.services.all())
-                points_to_add = int(service_price / 100)
-                if points_to_add > 0:
+
+            # Check if status is being updated to 'completed'
+            if serializer.validated_data.get('status') == 'completed' and instance.status != 'completed':
+                # Check if it's the customer's first completed appointment
+                is_first_appointment = not Appointment.objects.filter(
+                    customer=instance.customer,
+                    status='completed'
+                ).exclude(pk=instance.pk).exists()
+
+                if is_first_appointment:
                     loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=instance.customer)
-                    loyalty_points.points += points_to_add
+                    loyalty_points.points += 100  # Add 100 points for the first booking
                     loyalty_points.save()
+
+            serializer.save()
+
 
     def perform_destroy(self, instance):
         user = self.request.user
@@ -272,17 +282,11 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PromotionListCreateView(generics.ListCreateAPIView):
-    queryset = Promotion.objects.filter(is_active=True, valid_until__gte=timezone.now())
     serializer_class = PromotionSerializer
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,) 
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.user.is_authenticated and self.request.user.role == 'customer':
-            # You might want to add a specific promotion type for referrals or just include the referral code here
-            # For now, let's just make sure the user object is accessible.
-            pass
-        return queryset
+        return Promotion.objects.filter(is_active=True, valid_until__gte=timezone.now())
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
@@ -292,13 +296,14 @@ class PromotionListCreateView(generics.ListCreateAPIView):
                 'name': 'Referral Bonus',
                 'description': f'Share your unique referral code: {request.user.referral_code} and earn rewards!',
                 'promo_type': 'referral',
-                'discount_value': 0.00,  # Or a specific value for referral
+                'discount_value': 0.00,
                 'is_active': True,
                 'valid_from': timezone.now(),
-                'valid_until': None, # Valid indefinitely
+                'valid_until': None,
                 'minimum_booking_price': 0.00
             })
         return response
+
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Promotion.objects.all()
@@ -313,11 +318,8 @@ class LoyaltyPointView(generics.RetrieveAPIView):
     def get_object(self):
         user = self.request.user
         if user.role == 'customer':
-            # Use get_or_create to handle cases where a customer might not have a LoyaltyPoint object yet
             loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=user)
             return loyalty_points
-        # For admins or other roles, you might want to return a specific response or handle differently
-        # For now, we'll prevent the error by not calling super().get_object() without a pk
         return Response({"detail": "Not applicable for this user role via this endpoint."}, status=status.HTTP_404_NOT_FOUND)
 
 

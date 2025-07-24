@@ -112,7 +112,7 @@ export async function fetchStylistById(id: string) {
 
 export async function fetchPromotions() {
   try {
-    const response = await fetch(`${BASE_URL}/promotions/`);
+    const response = await authenticatedFetch(`${BASE_URL}/promotions/`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -651,7 +651,8 @@ export async function deleteSalonSetting(id: string) {
     });
     console.log(`Salon setting ${id} deleted successfully.`);
     return { success: true };
-  } catch (error) {
+  } catch (error)
+ {
     console.error(`Error deleting salon setting ${id}:`, error);
     throw error;
   }

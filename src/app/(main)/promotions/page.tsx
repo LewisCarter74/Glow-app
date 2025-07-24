@@ -9,34 +9,60 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Gift, Star, TicketPercent } from 'lucide-react';
+import { Gift, Star, TicketPercent, Clipboard, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { getLoyaltyPoints, redeemLoyaltyPoints } from '@/lib/api';
+import { getLoyaltyPoints, redeemLoyaltyPoints, fetchPromotions } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
+interface Promotion {
+    id: string | number;
+    name: string;
+    description: string;
+    promo_type: string;
+}
+
 export default function PromotionsPage() {
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | null>(null);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [redeemAmount, setRedeemAmount] = useState<number>(0);
+  const [copied, setCopied] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchPoints = useCallback(async () => {
+  const referralPromo = promotions.find(p => p.promo_type === 'referral');
+
+  const copyToClipboard = () => {
+    if (referralPromo) {
+        const referralCode = referralPromo.description.split(': ')[1];
+        navigator.clipboard.writeText(referralCode).then(() => {
+            setCopied(true);
+            toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+            setTimeout(() => setCopied(false), 2000);
+        });
+    }
+  };
+
+  const fetchPageData = useCallback(async () => {
     if (user) {
       setLoading(true);
       try {
-        const data = await getLoyaltyPoints();
-        setLoyaltyPoints(data.points);
+        const [pointsData, promosData] = await Promise.all([
+          getLoyaltyPoints(),
+          fetchPromotions(),
+        ]);
+        setLoyaltyPoints(pointsData.points);
+        setPromotions(promosData);
       } catch (error) {
-        console.error('Failed to fetch loyalty points:', error);
+        console.error('Failed to fetch page data:', error);
         setError(error instanceof Error && (error.message.includes('401') || error.message.includes('403')) 
             ? 'Authentication failed. Please log in again.'
-            : 'Could not load your loyalty points. Please try again later.'
+            : 'Could not load your rewards data. Please try again later.'
         );
       } finally {
         setLoading(false);
@@ -47,8 +73,8 @@ export default function PromotionsPage() {
   }, [user]);
 
   useEffect(() => {
-    fetchPoints();
-  }, [fetchPoints]);
+    fetchPageData();
+  }, [fetchPageData]);
 
   const handleRedeem = async () => {
     if (!redeemAmount || redeemAmount <= 0) {
@@ -57,8 +83,8 @@ export default function PromotionsPage() {
     }
     try {
         const response = await redeemLoyaltyPoints({ amount: redeemAmount });
-        toast({ title: 'Success!', description: response.message || 'Points redeemed successfully!' });
-        fetchPoints(); // Refresh points after redeeming
+        toast({ title: 'Success!', description: response.detail || 'Points redeemed successfully!' });
+        fetchPageData(); 
     } catch (error) {
         toast({ title: 'Redemption Failed', description: error instanceof Error ? error.message : 'An unknown error occurred.', variant: 'destructive'});
     }
@@ -92,6 +118,24 @@ export default function PromotionsPage() {
     );
   };
 
+  const renderPromotionCards = () => {
+      const regularPromos = promotions.filter(p => p.promo_type !== 'referral');
+      return regularPromos.map(promo => (
+          <Card key={promo.id} className="bg-card shadow-lg border-primary/20 flex flex-col">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="bg-primary/10 p-3 rounded-full"><Gift className="w-8 h-8 text-primary" /></div>
+                <CardTitle className="text-primary text-2xl">{promo.name}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-grow">
+              <p className="text-muted-foreground text-lg">{promo.description}</p>
+            </CardContent>
+            <CardFooter><Button asChild className="w-full"><Link href="/booking">Book Now</Link></Button></CardFooter>
+          </Card>
+      ));
+  };
+
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -100,19 +144,7 @@ export default function PromotionsPage() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <Card className="bg-card shadow-lg border-primary/20 flex flex-col">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="bg-primary/10 p-3 rounded-full"><Gift className="w-8 h-8 text-primary" /></div>
-              <CardTitle className="text-primary text-2xl">Welcome Offer</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow">
-            <p className="text-muted-foreground text-lg">Enjoy <span className="font-bold text-foreground">20% off</span> your first service with us!</p>
-            <p className="text-sm text-muted-foreground mt-2">This offer is automatically applied for new customers.</p>
-          </CardContent>
-          <CardFooter><Button asChild className="w-full"><Link href="/booking">Book Now & Redeem</Link></Button></CardFooter>
-        </Card>
+        {renderPromotionCards()}
 
         <Card className="bg-card shadow-lg border-accent/20 flex flex-col">
           <CardHeader>
@@ -132,18 +164,29 @@ export default function PromotionsPage() {
           )}
         </Card>
 
-        <Card className="bg-card shadow-lg border-secondary-foreground/20 flex flex-col">
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="bg-secondary p-3 rounded-full"><TicketPercent className="w-8 h-8 text-secondary-foreground" /></div>
-              <CardTitle className="text-secondary-foreground text-2xl">Refer a Friend</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow">
-            <p className="text-muted-foreground text-lg">Get <span className="font-bold text-foreground">100 points</span> for every friend who signs up and books an appointment!</p>
-          </CardContent>
-          <CardFooter><Button asChild variant="secondary" className="w-full"><Link href="/referrals">Get Your Referral Link</Link></Button></CardFooter>
-        </Card>
+        {user && referralPromo && (
+            <Card className="bg-card shadow-lg border-secondary-foreground/20 flex flex-col">
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div className="bg-secondary p-3 rounded-full"><TicketPercent className="w-8 h-8 text-secondary-foreground" /></div>
+                  <CardTitle className="text-secondary-foreground text-2xl">{referralPromo.name}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <p className="text-muted-foreground text-lg">
+                    Share your unique code to give your friends a discount and earn points!
+                </p>
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-muted p-3">
+                    <Input readOnly value={referralPromo.description.split(': ')[1]} className="flex-grow bg-transparent border-0 shadow-none"/>
+                    <Button onClick={copyToClipboard} size="icon" variant="ghost">
+                        {copied ? <ClipboardCheck className="w-5 h-5 text-green-500" /> : <Clipboard className="w-5 h-5" />}
+                    </Button>
+                </div>
+
+              </CardContent>
+              <CardFooter><Button asChild variant="secondary" className="w-full"><Link href="/booking">Book an Appointment</Link></Button></CardFooter>
+            </Card>
+        )}
       </div>
     </div>
   );
