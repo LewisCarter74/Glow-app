@@ -278,7 +278,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
         now = timezone.now()
         appointment_datetime = datetime.combine(appointment_date, appointment_time)
         
-        # Make the appointment_datetime timezone-aware
         if timezone.is_naive(appointment_datetime):
             appointment_datetime = timezone.make_aware(appointment_datetime, pytz.utc)
 
@@ -292,6 +291,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         services = validated_data.pop('services')
+        validated_data.pop('service_ids', None)
         appointment = Appointment.objects.create(**validated_data)
         appointment.services.set(services)
         return appointment
