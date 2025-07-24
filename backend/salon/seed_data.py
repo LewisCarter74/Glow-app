@@ -1,5 +1,9 @@
 import os
+import sys
 import django
+
+# Add the parent directory of the 'backend' app to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'glowapp_backend.settings')
 django.setup()
