@@ -39,18 +39,22 @@ export default function PromotionsPage() {
 
   const copyToClipboard = () => {
     if (referralPromo) {
-        const referralCode = referralPromo.description.split(': ')[1];
-        navigator.clipboard.writeText(referralCode).then(() => {
-            setCopied(true);
-            toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
-            setTimeout(() => setCopied(false), 2000);
-        });
+        // Extracts the code from a description like "Share your unique referral code: YOURCODE123 and earn rewards!"
+        const referralCode = referralPromo.description.split(': ')[1]?.split(' ')[0];
+        if (referralCode) {
+            navigator.clipboard.writeText(referralCode).then(() => {
+                setCopied(true);
+                toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+                setTimeout(() => setCopied(false), 2000);
+            });
+        }
     }
   };
 
   const fetchPageData = useCallback(async () => {
     if (user) {
       setLoading(true);
+      setError(null);
       try {
         const [pointsData, promosData] = await Promise.all([
           getLoyaltyPoints(),
@@ -91,19 +95,19 @@ export default function PromotionsPage() {
   }
 
   const renderLoyaltyContent = () => {
-    if (loading) {
-      return (
-        <>
-          <Skeleton className="h-20 w-32 mx-auto" />
-          <Skeleton className="h-6 w-48 mx-auto mt-2" />
-        </>
-      );
-    }
     if (!user) {
       return (
         <div className="text-center flex flex-col items-center justify-center h-full">
-          <p className="text-muted-foreground mb-4">Please log in to see your loyalty points.</p>
+          <p className="text-muted-foreground mb-4">Please log in to see your rewards.</p>
           <Button asChild><Link href="/login">Login</Link></Button>
+        </div>
+      );
+    }
+     if (loading) {
+      return (
+        <div className="text-center">
+            <Skeleton className="h-20 w-32 mx-auto" />
+            <Skeleton className="h-6 w-48 mx-auto mt-2" />
         </div>
       );
     }
@@ -111,14 +115,17 @@ export default function PromotionsPage() {
       return <p className="text-destructive text-center">{error}</p>;
     }
     return (
-      <>
+      <div className='text-center'>
         <p className="text-6xl font-bold">{loyaltyPoints}</p>
         <p className="text-muted-foreground mt-2">Your current balance</p>
-      </>
+      </div>
     );
   };
 
   const renderPromotionCards = () => {
+      if (loading && user) return null;
+      if (!user) return null;
+
       const regularPromos = promotions.filter(p => p.promo_type !== 'referral');
       return regularPromos.map(promo => (
           <Card key={promo.id} className="bg-card shadow-lg border-primary/20 flex flex-col">
@@ -134,6 +141,36 @@ export default function PromotionsPage() {
             <CardFooter><Button asChild className="w-full"><Link href="/booking">Book Now</Link></Button></CardFooter>
           </Card>
       ));
+  };
+  
+  const renderReferralCard = () => {
+    if (loading && user) return null;
+    if (!user || !referralPromo) return null;
+
+    const referralCode = referralPromo.description.split(': ')[1]?.split(' ')[0];
+
+    return (
+        <Card className="bg-card shadow-lg border-secondary-foreground/20 flex flex-col">
+            <CardHeader>
+            <div className="flex items-center gap-4">
+                <div className="bg-secondary p-3 rounded-full"><TicketPercent className="w-8 h-8 text-secondary-foreground" /></div>
+                <CardTitle className="text-secondary-foreground text-2xl">{referralPromo.name}</CardTitle>
+            </div>
+            </CardHeader>
+            <CardContent className="flex-grow">
+            <p className="text-muted-foreground text-lg">
+                Share your unique code to give friends a discount and earn points!
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-lg bg-muted p-3">
+                <Input readOnly value={referralCode || 'Loading...'} className="flex-grow bg-transparent border-0 shadow-none focus-visible:ring-0"/>
+                <Button onClick={copyToClipboard} size="icon" variant="ghost" disabled={!referralCode}>
+                    {copied ? <ClipboardCheck className="w-5 h-5 text-green-500" /> : <Clipboard className="w-5 h-5" />}
+                </Button>
+            </div>
+            </CardContent>
+            <CardFooter><Button asChild variant="secondary" className="w-full"><Link href="/booking">Book an Appointment</Link></Button></CardFooter>
+        </Card>
+    );
   };
 
   return (
@@ -164,29 +201,7 @@ export default function PromotionsPage() {
           )}
         </Card>
 
-        {user && referralPromo && (
-            <Card className="bg-card shadow-lg border-secondary-foreground/20 flex flex-col">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="bg-secondary p-3 rounded-full"><TicketPercent className="w-8 h-8 text-secondary-foreground" /></div>
-                  <CardTitle className="text-secondary-foreground text-2xl">{referralPromo.name}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <p className="text-muted-foreground text-lg">
-                    Share your unique code to give your friends a discount and earn points!
-                </p>
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-muted p-3">
-                    <Input readOnly value={referralPromo.description.split(': ')[1]} className="flex-grow bg-transparent border-0 shadow-none"/>
-                    <Button onClick={copyToClipboard} size="icon" variant="ghost">
-                        {copied ? <ClipboardCheck className="w-5 h-5 text-green-500" /> : <Clipboard className="w-5 h-5" />}
-                    </Button>
-                </div>
-
-              </CardContent>
-              <CardFooter><Button asChild variant="secondary" className="w-full"><Link href="/booking">Book an Appointment</Link></Button></CardFooter>
-            </Card>
-        )}
+        {renderReferralCard()}
       </div>
     </div>
   );
