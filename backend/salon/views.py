@@ -136,7 +136,9 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['price', 'duration_minutes', 'average_rating']
 
     def get_queryset(self):
-        queryset = Service.objects.filter(is_active=True).annotate(average_rating=Avg('review__rating'))
+        queryset = Service.objects.filter(is_active=True).annotate(
+            average_rating=Avg('appointment__review__rating')
+        )
         category_name = self.request.query_params.get('category', None)
         if category_name is not None:
             queryset = queryset.filter(category__name__iexact=category_name)
