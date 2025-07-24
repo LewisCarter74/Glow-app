@@ -51,14 +51,17 @@ class User(AbstractUser):
         return self.email
 
     def save(self, *args, **kwargs):
-        if not self.referral_code and self.id:
-            base_code = self.email.split('@')[0].replace('.', '')[:5].upper()
-            unique_id_part = str(uuid.uuid4())[:5].replace('-', '').upper()
-            self.referral_code = f"{base_code}{self.id}{unique_id_part}"
-
-            while User.objects.filter(referral_code=self.referral_code).exists():
-                unique_id_part = str(uuid.uuid4())[:5].replace('-', '').upper()
-                self.referral_code = f"{base_code}{self.id}{unique_id_part}"
+        # Generate a referral code only if the user has an ID and no referral code yet.
+        if not self.referral_code and self.pk:
+            # Create a base code from the user's email and ID.
+            base_code = self.email.split('@')[0].replace('.', '').upper()
+            self.referral_code = f"{base_code}{self.pk}"
+            
+            # Ensure the code is unique, appending a number if necessary.
+            counter = 1
+            while User.objects.filter(referral_code=self.referral_code).exclude(pk=self.pk).exists():
+                self.referral_code = f"{base_code}{self.pk}-{counter}"
+                counter += 1
         super().save(*args, **kwargs)
 
     class Meta:
@@ -81,7 +84,6 @@ class Service(models.Model):
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_minutes = models.IntegerField(default=30, validators=[MinValueValidator(1)])
-    # Removed old_category_name and set category to non-nullable (assuming all services must have a category)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='services')
     image = models.ImageField(upload_to='service_images/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -93,7 +95,6 @@ class Stylist(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.OneToOneField('User', on_delete=models.CASCADE, limit_choices_to={'role': 'stylist'})
     bio = models.TextField(blank=True, null=True)
-    # Changed from ManyToManyField(Service) to ManyToManyField(Category)
     specialties = models.ManyToManyField(Category, blank=True, related_name='stylists')
     working_hours_start = models.TimeField(blank=True, null=True)
     working_hours_end = models.TimeField(blank=True, null=True)
