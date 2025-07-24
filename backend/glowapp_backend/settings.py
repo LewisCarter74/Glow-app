@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'salon',
     'django_filters',
+    'storages', # Add django-storages
 ]
 
 MIDDLEWARE = [
@@ -94,8 +95,23 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Add STATIC_ROOT for collectstatic
+
+# Supabase Storage Configuration
+# Set these environment variables in your .env file
+AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_S3_ENDPOINT_URL')
+AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('SUPABASE_STORAGE_BUCKET_NAME')
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None # Or 'public-read' if you want files to be publicly accessible by default
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+AWS_QUERYSTRING_AUTH = False # Set to False if you want clean URLs without query parameters
+
+# Use S3Boto3Storage for default file storage (for media files like images)
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.split('//')[1]}/" if AWS_S3_ENDPOINT_URL else '/media/'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+import uuid
 
 # Custom User Manager
 class CustomUserManager(BaseUserManager):
@@ -39,6 +40,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='customer')
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     username = None 
+    referral_code = models.CharField(max_length=50, unique=True, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -47,6 +49,17 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    def save(self, *args, **kwargs):
+        if not self.referral_code and self.id:
+            base_code = self.email.split('@')[0].replace('.', '')[:5].upper() 
+            unique_id_part = str(uuid.uuid4())[:5].replace('-', '').upper()
+            self.referral_code = f"{base_code}{self.id}{unique_id_part}"
+            
+            while User.objects.filter(referral_code=self.referral_code).exists():
+                unique_id_part = str(uuid.uuid4())[:5].replace('-', '').upper()
+                self.referral_code = f"{base_code}{self.id}{unique_id_part}"
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'User'

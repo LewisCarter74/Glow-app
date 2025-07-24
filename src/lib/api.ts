@@ -39,6 +39,7 @@ interface Service {
     price: number;
     duration_minutes: number;
     category: string; 
+    category_name: string; 
     imageUrl: string | null;
 }
 

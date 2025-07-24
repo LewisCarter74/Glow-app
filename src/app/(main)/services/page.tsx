@@ -18,18 +18,19 @@ interface Service {
   description: string;
   price: number;
   duration_minutes: number;
-  category: string;
+  category: string; 
+  category_name: string; 
   imageUrl: string | null; 
 }
 
-const serviceCategories = ['Hair', 'Nails', 'Beauty']; // Added 'Beauty'
+const serviceCategories = ['Hair', 'Nails', 'Beauty'];
 const FALLBACK_IMAGE_URL = 'https://placehold.co/150x100';
-
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
+    // Fetch all services
     fetchServices()
       .then((data) => {
         setServices(data);
@@ -66,7 +67,7 @@ export default function ServicesPage() {
               <AccordionContent>
                 <div className="space-y-6 pt-4">
                   {services
-                    .filter((service) => service.category === category)
+                    .filter((service) => service.category_name === category) // Filter by category_name
                     .map((service) => (
                       <div
                         key={service.id}

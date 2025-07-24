@@ -276,6 +276,29 @@ class PromotionListCreateView(generics.ListCreateAPIView):
     serializer_class = PromotionSerializer
     permission_classes = (permissions.AllowAny,)
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.is_authenticated and self.request.user.role == 'customer':
+            # You might want to add a specific promotion type for referrals or just include the referral code here
+            # For now, let's just make sure the user object is accessible.
+            pass
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        if request.user.is_authenticated and request.user.role == 'customer' and request.user.referral_code:
+            response.data.append({
+                'id': 'referral_promo',
+                'name': 'Referral Bonus',
+                'description': f'Share your unique referral code: {request.user.referral_code} and earn rewards!',
+                'promo_type': 'referral',
+                'discount_value': 0.00,  # Or a specific value for referral
+                'is_active': True,
+                'valid_from': timezone.now(),
+                'valid_until': None, # Valid indefinitely
+                'minimum_booking_price': 0.00
+            })
+        return response
 
 class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Promotion.objects.all()
@@ -284,17 +307,18 @@ class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class LoyaltyPointView(generics.RetrieveAPIView):
-    queryset = LoyaltyPoint.objects.all()
     serializer_class = LoyaltyPointSerializer
-    permission_classes = (IsOwnerOrAdmin,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get_object(self):
-        if self.request.user.role == 'customer':
-            try:
-                return LoyaltyPoint.objects.get(customer=self.request.user)
-            except LoyaltyPoint.DoesNotExist:
-                raise generics.ValidationError("Loyalty points not found for this user.")
-        return super().get_object()
+        user = self.request.user
+        if user.role == 'customer':
+            # Use get_or_create to handle cases where a customer might not have a LoyaltyPoint object yet
+            loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=user)
+            return loyalty_points
+        # For admins or other roles, you might want to return a specific response or handle differently
+        # For now, we'll prevent the error by not calling super().get_object() without a pk
+        return Response({"detail": "Not applicable for this user role via this endpoint."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class LoyaltyPointRedeemView(views.APIView):
@@ -431,7 +455,8 @@ class AppointmentAvailabilityView(views.APIView):
 
         services = Service.objects.filter(id__in=service_ids)
         if len(services) != len(service_ids):
-            return Response({"detail": "One or more services not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "One or more services not found."},
+                            status=status.HTTP_404_NOT_FOUND)
 
         total_duration = sum(s.duration_minutes for s in services)
         required_categories = {s.category for s in services}
