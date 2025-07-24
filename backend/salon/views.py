@@ -18,8 +18,8 @@ from .models import User, Service, Stylist, Appointment, Review, Promotion, Loya
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer, ServiceSerializer,
     StylistSerializer, AppointmentSerializer, ReviewSerializer, PromotionSerializer,
-    LoyaltyPointSerializer, SalonSettingSerializer, PasswordResetDirectSerializer,
-    AIStyleRecommendationInputSerializer,
+    LoyaltyPointSerializer, SalonSettingSerializer, PasswordResetSerializer,
+    PasswordResetConfirmSerializer, AIStyleRecommendationInputSerializer,
     AIRecommendationResponseSerializer, CategorySerializer
 )
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin, IsStylistOrAdmin, IsCustomerOrAdmin
@@ -62,23 +62,58 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-class PasswordResetDirectView(views.APIView):
+class PasswordResetView(views.APIView):
     permission_classes = (permissions.AllowAny,)
-    serializer_class = PasswordResetDirectSerializer
+    serializer_class = PasswordResetSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        
+        reset_link = f"{settings.FRONTEND_URL}/password-reset-confirm?uid={uid}&token={token}"
+        
+        send_mail(
+            'Password Reset Request',
+            f'Please use the following link to reset your password: {reset_link}',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        
+        return Response({'detail': 'Password reset link sent to your email.'}, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = PasswordResetConfirmSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        uidb64 = serializer.validated_data['uid']
+        token = serializer.validated_data['token']
         new_password = serializer.validated_data['new_password']
 
         try:
-            user = User.objects.get(email=email)
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
             user.set_password(new_password)
             user.save()
             return Response({'detail': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'detail': 'Invalid token or user ID.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):

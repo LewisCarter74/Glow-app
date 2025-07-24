@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,16 +6,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { resetPasswordDirect } from '@/lib/api'; // This function will be created/modified
+import { confirmPasswordReset } from '@/lib/api';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function PasswordResetConfirmPage() {
-  const [email, setEmail] = useState(''); // New state for email
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  const uid = searchParams.get('uid');
+  const token = searchParams.get('token');
+
+  useEffect(() => {
+    if (!uid || !token) {
+      setError('Invalid password reset link. Please try again from the forgot password page.');
+    }
+  }, [uid, token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +41,18 @@ export default function PasswordResetConfirmPage() {
       return;
     }
 
+    if (!uid || !token) {
+      setError('Missing UID or Token. Cannot reset password.');
+      toast({
+        title: 'Error',
+        description: 'Invalid password reset link. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      await resetPasswordDirect(email, newPassword); // Call the new simplified API function
+      await confirmPasswordReset(uid, token, newPassword);
       setIsSubmitted(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
@@ -52,7 +73,7 @@ export default function PasswordResetConfirmPage() {
           <CardDescription>
             {isSubmitted
               ? "Your password has been successfully reset."
-              : error || "Enter your email and new password below."}
+              : error || "Enter your new password below."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -65,13 +86,6 @@ export default function PasswordResetConfirmPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                type="email"
-                placeholder="Your Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
               <Input
                 type="password"
                 placeholder="New Password"
@@ -87,7 +101,7 @@ export default function PasswordResetConfirmPage() {
                 required
               />
               {error && <p className="text-destructive text-sm">{error}</p>}
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={!uid || !token}>
                 Reset Password
               </Button>
             </form>

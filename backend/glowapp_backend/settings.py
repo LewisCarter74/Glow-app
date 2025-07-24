@@ -134,7 +134,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# Email Backend Configuration
+# Email Backend Configuration for Development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-DEFAULT_FROM_EMAIL = 'webmaster@localhost'
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:9002')
+DEFAULT_FROM_EMAIL = 'no-reply@glowapp.com'
