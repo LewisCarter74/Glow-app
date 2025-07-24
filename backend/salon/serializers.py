@@ -7,6 +7,7 @@ from django.db.models import F, ExpressionWrapper, fields
 from django.urls import reverse_lazy
 from django.utils import timezone
 from datetime import timedelta, datetime, time
+import pytz
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
@@ -276,6 +277,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
         now = timezone.now()
         appointment_datetime = datetime.combine(appointment_date, appointment_time)
+        
+        # Make the appointment_datetime timezone-aware
+        if timezone.is_naive(appointment_datetime):
+            appointment_datetime = timezone.make_aware(appointment_datetime, pytz.utc)
+
         if appointment_datetime < now:
             raise serializers.ValidationError({"appointment_date": "Appointment must be in the future."})
 
