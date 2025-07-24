@@ -8,6 +8,11 @@ from datetime import timedelta, datetime, time
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, Category
 from .serializers import (
@@ -65,8 +70,25 @@ class PasswordResetView(views.APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
-        return Response({'detail': 'Password reset link sent to your email (feature not fully implemented).',
-                         'email': email}, status=status.HTTP_200_OK)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        
+        reset_link = f"{settings.FRONTEND_URL}/password-reset-confirm?uid={uid}&token={token}"
+        
+        send_mail(
+            'Password Reset Request',
+            f'Please use the following link to reset your password: {reset_link}',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        
+        return Response({'detail': 'Password reset link sent to your email.'}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(views.APIView):
@@ -76,11 +98,22 @@ class PasswordResetConfirmView(views.APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        uid = serializer.validated_data['uid']
+        uidb64 = serializer.validated_data['uid']
         token = serializer.validated_data['token']
         new_password = serializer.validated_data['new_password']
-        return Response({'detail': 'Password has been reset successfully (feature not fully implemented).',
-                         'uid': uid, 'token': token}, status=status.HTTP_200_OK)
+
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
+            user.set_password(new_password)
+            user.save()
+            return Response({'detail': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'detail': 'Invalid token or user ID.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):
@@ -408,7 +441,6 @@ class AppointmentAvailabilityView(views.APIView):
             specialties__in=list(required_categories)
         ).distinct()
         
-        # Get all appointments for the given day for all available stylists
         all_appointments_for_day = Appointment.objects.filter(
             stylist__in=available_stylists,
             appointment_date=appointment_date,
@@ -429,13 +461,11 @@ class AppointmentAvailabilityView(views.APIView):
 
             is_slot_available = False
             for stylist in available_stylists:
-                # Check stylist's working hours
                 if stylist.working_hours_start and slot_start_time < stylist.working_hours_start:
                     continue
                 if stylist.working_hours_end and slot_end_time > stylist.working_hours_end:
                     continue
 
-                # Check for conflicts with existing appointments for this stylist
                 stylist_appointments = [
                     apt for apt in all_appointments_for_day 
                     if apt['stylist_id'] == stylist.id
@@ -446,7 +476,6 @@ class AppointmentAvailabilityView(views.APIView):
                     appt_start_time = appt['appointment_time']
                     appt_end_time = (datetime.combine(appointment_date, appt_start_time) + timedelta(minutes=appt['duration_minutes'])).time()
                     
-                    # Check for overlap: (start1 < end2) and (end1 > start2)
                     if slot_start_time < appt_end_time and slot_end_time > appt_start_time:
                         is_stylist_conflicting = True
                         break
