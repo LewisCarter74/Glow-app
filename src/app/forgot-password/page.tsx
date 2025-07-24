@@ -5,32 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { requestPasswordReset } from '@/lib/api';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const { toast } = useToast();
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await requestPasswordReset(email);
-      toast({
-        title: 'Success',
-        description: 'If an account with that email exists, a password reset link has been sent. Redirecting...',
-        variant: 'default',
-      });
-      router.push('/password-reset-confirm'); // Direct redirection
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      toast({
-        title: 'Error',
-        description: `Failed to send reset link: ${errorMessage}`,
-        variant: 'destructive',
-      });
-    }
+    // Directly redirect to the password reset confirm page without sending an email
+    toast({
+      title: 'Redirecting',
+      description: 'You will be redirected to the password reset page.',
+      variant: 'default',
+    });
+    router.push('/password-reset-confirm');
   };
 
   return (
@@ -39,7 +29,7 @@ export default function ForgotPasswordPage() {
         <CardHeader>
           <CardTitle>Forgot Your Password?</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email to proceed to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,7 +42,7 @@ export default function ForgotPasswordPage() {
               required
             />
             <Button type="submit" className="w-full">
-              Send Reset Link
+              Proceed to Reset
             </Button>
           </form>
         </CardContent>

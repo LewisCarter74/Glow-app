@@ -74,6 +74,10 @@ class LoginSerializer(serializers.Serializer):
         data['user'] = user
         return data
 
+class PasswordResetDirectSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -379,17 +383,6 @@ class SalonSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalonSetting
         fields = '__all__'
-
-class PasswordResetSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    uid = serializers.CharField(required=True)
-    token = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True, write_only=True, min_length=8)
-
-    def validate(self, data):
-        return data
 
 class AIStyleRecommendationInputSerializer(serializers.Serializer):
     preferences = serializers.CharField(required=False, allow_blank=True, max_length=1000)

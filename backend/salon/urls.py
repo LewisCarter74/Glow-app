@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    RegisterView, LoginView, UserProfileView, PasswordResetView, PasswordResetConfirmView,
+    RegisterView, LoginView, UserProfileView, PasswordResetDirectView,
     ServiceListCreateView, ServiceDetailView,
     StylistListCreateView, StylistDetailView,
     AppointmentListCreateView, AppointmentDetailView,
@@ -19,8 +19,7 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
-    path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
-    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('password-reset-direct/', PasswordResetDirectView.as_view(), name='password-reset-direct'),
 
     # Categories (New)
     path('categories/', CategoryListCreateView.as_view(), name='category-list-create'),

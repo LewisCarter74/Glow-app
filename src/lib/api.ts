@@ -201,14 +201,15 @@ export const logoutUser = () => {
   console.log('localStorage after logout - user:', localStorage.getItem('user'));
 };
 
-export async function requestPasswordReset(email: string) {
+// New simplified password reset function
+export async function resetPasswordDirect(email: string, new_password: string) {
   try {
-    const response = await fetch(`${BASE_URL}/password-reset/`, {
+    const response = await fetch(`${BASE_URL}/password-reset-direct/`, { // New backend endpoint
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, new_password }),
     });
 
     if (!response.ok) {
@@ -217,34 +218,10 @@ export async function requestPasswordReset(email: string) {
     }
 
     const data = await response.json();
-    console.log('Password reset email request successful:', data);
+    console.log('Direct password reset successful:', data);
     return data;
   } catch (error) {
-    console.error('Error requesting password reset:', error);
-    throw error;
-  }
-}
-
-export async function confirmPasswordReset(uid: string, token: string, new_password: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/password-reset-confirm/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ uid, token, new_password }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || JSON.stringify(errorData));
-    }
-
-    const data = await response.json();
-    console.log('Password reset confirmation successful:', data);
-    return data;
-  } catch (error) {
-    console.error('Error confirming password reset:', error);
+    console.error('Error directly resetting password:', error);
     throw error;
   }
 }
