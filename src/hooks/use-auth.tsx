@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { getProfile, login as apiLogin, register as apiRegister } from '@/lib/api';
+import { getProfile, login as apiLogin, register as apiRegister, LoginCredentials } from '@/lib/api';
 import Cookies from 'js-cookie';
 
 interface User {
@@ -32,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: object) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
   reloadUser: () => Promise<void>;
   register: (userData: object) => Promise<any>;
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loadUser();
   }, []);
 
-  const login = async (credentials: object) => {
+  const login = async (credentials: LoginCredentials) => {
     try {
         const { access, refresh, user: userData } = await apiLogin(credentials) as LoginResponse;
         Cookies.set('access_token', access, { secure: true, sameSite: 'strict' });

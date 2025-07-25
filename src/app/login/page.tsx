@@ -35,7 +35,7 @@ function LoginComponent() {
         throw new Error("Please enter both email and password.");
       }
 
-      await login(email, password); // Use login from useAuth
+      await login({ email, password }); // Use login from useAuth
       toast({
             title: 'Login Successful',
             description: "Welcome back!",

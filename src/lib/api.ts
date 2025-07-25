@@ -9,6 +9,12 @@ interface RequestOptions {
   body?: any;
 }
 
+export interface LoginCredentials {
+  email: string;
+  password?: string; 
+}
+
+
 async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const token = Cookies.get('access_token');
   const headers: { [key: string]: string } = {
@@ -54,7 +60,7 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
 }
 
 // Authentication
-export const login = (credentials: object) => request('/salon/login/', { method: 'POST', body: credentials });
+export const login = (credentials: LoginCredentials) => request('/salon/login/', { method: 'POST', body: credentials });
 export const register = (userData: object) => request('/salon/register/', { method: 'POST', body: userData });
 export const getProfile = () => request('/salon/profile/');
 export const updateProfile = (profileData: any) => request('/salon/profile/', { method: 'PUT', body: profileData });
