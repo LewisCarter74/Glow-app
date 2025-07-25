@@ -22,6 +22,12 @@ interface User {
   name: string;
 }
 
+interface LoginResponse {
+  access: string;
+  refresh: string;
+  user: User;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -48,7 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const token = Cookies.get('access_token');
       if (token) {
         try {
-          const data = await getProfile();
+          const data = await getProfile() as User;
           setUser(data);
         } catch (error) {
           console.error('Failed to load user, logging out.', error);
@@ -65,7 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (credentials: object) => {
     try {
-        const { access, refresh, user: userData } = await apiLogin(credentials);
+        const { access, refresh, user: userData } = await apiLogin(credentials) as LoginResponse;
         Cookies.set('access_token', access, { secure: true, sameSite: 'strict' });
         Cookies.set('refresh_token', refresh, { secure: true, sameSite: 'strict' });
         setUser(userData);
@@ -95,7 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const reloadUser = async () => {
     setIsLoading(true);
     try {
-        const data = await getProfile();
+        const data = await getProfile() as User;
         setUser(data);
     } catch (error) {
         console.error('Failed to reload user:', error);
