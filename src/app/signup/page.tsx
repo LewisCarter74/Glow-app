@@ -34,7 +34,7 @@ const formSchema = z
   });
 
 export default function SignupPage() {
-  const { register } = useAuth();
+  const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +56,7 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await register(values);
+      await auth.register(values);
       toast({
         title: 'Registration Successful',
         description: 'You have successfully created an account.',

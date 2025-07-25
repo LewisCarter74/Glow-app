@@ -52,7 +52,7 @@ export default function PasswordResetConfirmPage() {
     }
 
     try {
-      await confirmPasswordReset(uid, token, newPassword);
+      await confirmPasswordReset({ uid, token, new_password: newPassword });
       setIsSubmitted(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';

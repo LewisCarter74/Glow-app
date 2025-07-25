@@ -18,31 +18,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { fetchAppointments, deleteAppointment } from '@/lib/api';
+import { getAppointments, cancelAppointment } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { format } from 'date-fns';
-
-interface Service {
-  id: string;
-  name: string;
-}
-
-interface Stylist {
-  user: {
-    first_name: string;
-    last_name: string;
-  };
-}
-
-interface Appointment {
-  id: string;
-  services: Service[];
-  stylist: Stylist;
-  appointment_date: string;
-  appointment_time: string;
-  status: 'pending' | 'approved' | 'completed' | 'cancelled';
-  can_review: boolean;
-}
+import { Appointment } from '@/lib/types';
 
 export default function AppointmentsPage() {
   const router = useRouter();
@@ -53,10 +32,10 @@ export default function AppointmentsPage() {
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  const getAppointments = useCallback(async () => {
+  const fetchAppointments = useCallback(async () => {
     if (user) {
       try {
-        const data = await fetchAppointments();
+        const data = await getAppointments();
         setAppointments(data);
       } catch (err) {
         toast({ title: "Error", description: "Could not fetch appointments.", variant: "destructive" });
@@ -65,8 +44,8 @@ export default function AppointmentsPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    getAppointments();
-  }, [getAppointments]);
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   const handleLeaveReviewClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
@@ -75,14 +54,14 @@ export default function AppointmentsPage() {
   
   const handleReviewSubmit = () => {
     // This function will be called on successful submission to refetch appointments
-    getAppointments();
+    fetchAppointments();
   }
 
   const handleCancelAppointment = async () => {
     if (!selectedAppointment) return;
 
     try {
-      await deleteAppointment(selectedAppointment.id);
+      await cancelAppointment(selectedAppointment.id);
       setAppointments(prev => prev.filter(a => a.id !== selectedAppointment.id));
       toast({
         title: 'Appointment Canceled',
@@ -172,9 +151,9 @@ export default function AppointmentsPage() {
             isOpen={isReviewDialogOpen}
             onClose={() => setIsReviewDialogOpen(false)}
             onSubmit={handleReviewSubmit}
-            appointmentId={selectedAppointment.id} // Pass appointment ID
-            serviceName={selectedAppointment.services.map(s => s.name).join(', ')} // Pass service names
-            stylistName={`${selectedAppointment.stylist.user.first_name} ${selectedAppointment.stylist.user.last_name}`} // Pass stylist name
+            appointmentId={selectedAppointment.id.toString()}
+            serviceName={selectedAppointment.services.map(s => s.name).join(', ')}
+            stylistName={`${selectedAppointment.stylist.user.first_name} ${selectedAppointment.stylist.user.last_name}`}
         />
       )}
       

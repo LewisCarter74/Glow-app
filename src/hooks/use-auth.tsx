@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { getProfile, login as apiLogin } from '@/lib/api';
+import { getProfile, login as apiLogin, register as apiRegister } from '@/lib/api';
 import Cookies from 'js-cookie';
 
 interface User {
@@ -29,6 +29,7 @@ interface AuthContextType {
   login: (credentials: object) => Promise<void>;
   logout: () => void;
   reloadUser: () => Promise<void>;
+  register: (userData: object) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,6 +76,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const register = async (userData: object) => {
+    try {
+      return await apiRegister(userData);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     Cookies.remove('access_token');
     Cookies.remove('refresh_token');
@@ -102,6 +112,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     reloadUser,
+    register,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
