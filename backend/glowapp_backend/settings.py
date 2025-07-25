@@ -4,6 +4,7 @@ import dj_database_url
 from dotenv import load_dotenv
 
 # Explicitly load the .env file from the backend directory
+# This ensures your Supabase credentials are read correctly.
 dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
@@ -11,6 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-super-secret-key-please-change-me')
 
+# DEBUG is still useful for error pages, etc.
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
@@ -107,31 +109,37 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Media files configuration (Local vs. Supabase)
-if DEBUG:
-    # Development settings: serve media files locally
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+# --- Media Files Configuration ---
+# FORCING all file uploads to go to Supabase, regardless of DEBUG status.
+
+# 1. Set the default storage backend to S3Boto3Storage.
+# This is the most important setting.
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# 2. Set the required AWS-prefixed variables for django-storages to use.
+# These are read from your .env file.
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME')
+
+# 3. Configure the public URL for the files.
+# This ensures the frontend receives the correct URL.
+if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+    # Example: https://ominxkvbmysyovoroooz.supabase.co/storage/v1/object/public/glowapp-images/
+    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
 else:
-    # Production settings: serve media files from Supabase
-    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')
-    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME')
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = 'public-read'
-    AWS_QUERYSTRING_AUTH = False
-    
-    # URL construction for Supabase
-    if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
-        AWS_S3_CUSTOM_DOMAIN = f'{AWS_S3_ENDPOINT_URL.split("://")[1]}'
-        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
-    else:
-        MEDIA_URL = '/media/'
-        
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # Fallback if the environment variables are not set
+    MEDIA_URL = '/media/'
+
+# 4. Optional: Other useful settings for S3.
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False
+
+# 5. Define MEDIA_ROOT. While files are stored in Supabase, Django needs this for temporary operations.
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media_temp')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -142,7 +150,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
-    'DEFAULT_AUTHENTICATION_classes': (
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
