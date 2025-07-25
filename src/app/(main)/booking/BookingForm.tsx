@@ -11,33 +11,10 @@ import { ArrowLeft, ArrowRight, CalendarIcon, Clock, Scissors, User, Wallet, Spa
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { createAppointment, fetchServices, fetchStylists, fetchCategories, fetchAvailableSlots } from "@/lib/api";
+import { createAppointment, getServices, getStylists, getCategories, getAvailability } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
-
-interface Service {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    duration_minutes: number;
-    category: string; 
-    imageUrl: string | null;
-}
-
-interface Stylist {
-    id: string;
-    user: {
-        first_name: string;
-        last_name: string;
-    };
-    specialties: string[]; 
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
+import { Service, Stylist, Category } from "@/lib/types";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -52,7 +29,7 @@ export default function BookingForm() {
   const [isLoadingTimes, setIsLoadingTimes] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [selectedStylistId, setSelectedStylistId] = useState<string>("any");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState("");
@@ -60,9 +37,9 @@ export default function BookingForm() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   useEffect(() => {
-    const getCategories = async () => {
+    const fetchCategories = async () => {
       try {
-        const data = await fetchCategories();
+        const data = await getCategories();
         setCategories(data);
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -72,22 +49,22 @@ export default function BookingForm() {
         });
       }
     };
-    getCategories();
+    fetchCategories();
   }, [toast]);
 
   useEffect(() => {
-    const getServicesAndStylists = async () => {
+    const fetchServicesAndStylists = async () => {
       if (!selectedCategory) {
           setServices([]);
           setStylists([]);
           return;
       };
       try {
-        const fetchedServices = await fetchServices({ category: selectedCategory, search: debouncedSearchTerm });
-        setServices(fetchedServices);
+        const fetchedServices = await getServices();
+        setServices(fetchedServices.filter(s => s.category_name === selectedCategory && s.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())));
 
         if (debouncedSearchTerm.length === 0) {
-            const fetchedStylists = await fetchStylists(selectedCategory);
+            const fetchedStylists = await getStylists();
             setStylists(fetchedStylists);
         }
       } catch (error) {
@@ -99,18 +76,18 @@ export default function BookingForm() {
       }
     };
 
-    getServicesAndStylists();
+    fetchServicesAndStylists();
   }, [selectedCategory, debouncedSearchTerm, toast]);
 
   useEffect(() => {
-      const getAvailableTimes = async () => {
+      const fetchAvailableTimes = async () => {
           if (selectedDate && selectedServices.length > 0) {
               setIsLoadingTimes(true);
               setAvailableTimes([]); // Clear previous times
               try {
                   const date = format(selectedDate, "yyyy-MM-dd");
-                  const times = await fetchAvailableSlots(date, selectedServices);
-                  setAvailableTimes(times);
+                  const times = await getAvailability(date, selectedServices);
+                  setAvailableTimes(Object.values(times).flatMap((stylist: any) => stylist.slots));
               } catch (error) {
                   console.error("Error fetching available times:", error);
                   toast({
@@ -125,7 +102,7 @@ export default function BookingForm() {
           }
       };
 
-      getAvailableTimes();
+      fetchAvailableTimes();
   }, [selectedDate, selectedServices, toast]);
 
 
@@ -135,7 +112,7 @@ export default function BookingForm() {
 
   const totalCost = services
     .filter(s => selectedServices.includes(s.id))
-    .reduce((acc, s) => acc + s.price, 0);
+    .reduce((acc, s) => acc + Number(s.price), 0);
 
   const totalDuration = services
     .filter(s => selectedServices.includes(s.id))
@@ -153,7 +130,7 @@ export default function BookingForm() {
     try {
         await createAppointment({
             service_ids: selectedServices,
-            stylist_id: selectedStylistId, // 'any' is handled by the backend
+            stylist_id: selectedStylistId === 'any' ? null : Number(selectedStylistId),
             appointment_date: format(selectedDate, "yyyy-MM-dd"),
             appointment_time: selectedTime,
         });
@@ -200,7 +177,7 @@ export default function BookingForm() {
     setSelectedTime("");
   };
 
-  const handleServiceChange = (serviceId: string) => {
+  const handleServiceChange = (serviceId: number) => {
     setSelectedServices(prev => 
         prev.includes(serviceId) 
         ? prev.filter(id => id !== serviceId)
@@ -257,11 +234,11 @@ export default function BookingForm() {
                 services.map((service) => (
                     <div key={service.id} className="flex items-center space-x-3 rounded-md border p-4 hover:bg-accent/50 transition-colors">
                       <Checkbox
-                        id={service.id}
+                        id={String(service.id)}
                         checked={selectedServices.includes(service.id)}
                         onCheckedChange={() => handleServiceChange(service.id)}
                       />
-                      <label htmlFor={service.id} className="font-medium leading-none flex-1 cursor-pointer">
+                      <label htmlFor={String(service.id)} className="font-medium leading-none flex-1 cursor-pointer">
                         {service.name}
                       </label>
                       <div className="text-sm text-muted-foreground">${service.price}</div>
@@ -283,7 +260,7 @@ export default function BookingForm() {
                     <SelectContent>
                       <SelectItem value="any">Any Available</SelectItem>
                       {availableStylists.map((stylist) => (
-                        <SelectItem key={stylist.id} value={stylist.id}>{stylist.user.first_name} {stylist.user.last_name}</SelectItem>
+                        <SelectItem key={stylist.id} value={String(stylist.id)}>{stylist.user.first_name} {stylist.user.last_name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -339,7 +316,7 @@ export default function BookingForm() {
                         </div>
                          <div>
                             <h4 className="font-semibold">Stylist</h4>
-                            <p>{stylists.find(s => s.id === selectedStylistId)?.user.first_name || 'Any Available'}</p>
+                            <p>{stylists.find(s => s.id === Number(selectedStylistId))?.user.first_name || 'Any Available'}</p>
                         </div>
                         <div>
                             <h4 className="font-semibold">Date & Time</h4>
