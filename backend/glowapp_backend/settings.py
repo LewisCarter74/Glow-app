@@ -3,7 +3,9 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-load_dotenv()
+# Explicitly load the .env file from the backend directory
+dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -106,25 +108,25 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Add STATIC_ROOT for collectstatic
 
 # Supabase Storage Configuration using django-storages
-# IMPORTANT: Make sure your .env file uses these exact 'AWS_' prefixed variable names.
-AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL') # e.g., https://<project-ref>.supabase.co/storage/v1
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')
 AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME')
 AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = 'public-read' # Files will be publicly readable
-AWS_S3_SIGNATURE_VERSION = 's3v4'
-AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME') # e.g., 'us-east-1' - find in your Supabase project settings
-AWS_QUERYSTRING_AUTH = False # Creates clean URLs
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False
 
+# More robust URL construction
+if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_S3_ENDPOINT_URL.split("://")[1]}'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
+else:
+    MEDIA_URL = '/media/'
+    
 # Set default file storage to S3Boto3Storage for media files
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# Construct the media URL
-if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
-    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
-else:
-    MEDIA_URL = '/media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
