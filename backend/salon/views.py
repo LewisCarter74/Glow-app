@@ -1,18 +1,20 @@
 # glow-app/backend/salon/views.py
 
 from django.shortcuts import render
-# FIXED: Added 'serializers' to the import list to prevent potential future errors
-from rest_framework import generics, permissions, status, viewsets, serializers
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, FavoriteStylist, Category, Referral, InspiredWork
+from .models import (
+    User, Service, Stylist, Appointment, Review, Promotion,
+    LoyaltyPoint, FavoriteStylist, Category, Referral, InspiredWork
+)
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer,
     ServiceSerializer, StylistSerializer, AppointmentSerializer, ReviewSerializer,
     PromotionSerializer, LoyaltyPointSerializer, FavoriteStylistSerializer,
     CategorySerializer, PasswordResetSerializer, PasswordResetConfirmSerializer,
-   ReferralSerializer, InspiredWorkSerializer
+    ReferralSerializer, InspiredWorkSerializer
 )
 from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode
@@ -29,11 +31,8 @@ from drf_yasg import openapi
 from django.db import transaction
 import pytz
 from django.db.models import Q
-# REMOVED: Celery is not used in the current version of the file
-from celery.result import AsyncResult
 
 
-# New InspiredWorkViewSet
 class InspiredWorkViewSet(viewsets.ModelViewSet):
     """
     A viewset for viewing and managing inspired work images.
@@ -118,7 +117,25 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         return Appointment.objects.filter(customer=user)
 
     def perform_create(self, serializer):
-        serializer.save(customer=self.request.user)
+        appointment = serializer.save(customer=self.request.user)
+        # Logic to award loyalty points on completion is in perform_update
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        original_status = instance.status
+        updated_appointment = serializer.save()
+        
+        # Award loyalty points when an appointment is marked as 'completed'
+        if original_status != 'completed' and updated_appointment.status == 'completed':
+            self.award_loyalty_points(updated_appointment)
+
+    def award_loyalty_points(self, appointment):
+        customer = appointment.customer
+        points_to_award = int(appointment.total_price) # Example: 1 point per dollar spent
+        loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=customer)
+        loyalty_points.points += points_to_award
+        loyalty_points.save()
+
 
     @action(detail=True, methods=['post'], permission_classes=[IsOwner])
     def cancel(self, request, pk=None):
@@ -244,23 +261,31 @@ class PromotionViewSet(viewsets.ModelViewSet):
     serializer_class = PromotionSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-class LoyaltyPointView(APIView):
+class LoyaltyPointViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = LoyaltyPointSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
-        loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=request.user)
-        return Response({'points': loyalty_points.points})
+    def get_queryset(self):
+        """
+        This viewset should only return the loyalty points for the currently authenticated user.
+        """
+        user = self.request.user
+        return LoyaltyPoint.objects.filter(customer=user)
 
+    @action(detail=False, methods=['post'], url_path='redeem')
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={'amount': openapi.Schema(type=openapi.TYPE_INTEGER, description='Points to redeem')}
     ))
-    def post(self, request):
+    def redeem_points(self, request):
         amount = request.data.get('amount')
         if not isinstance(amount, int) or amount <= 0:
             return Response({"error": "Invalid amount specified."}, status=status.HTTP_400_BAD_REQUEST)
         
-        loyalty_points, _ = LoyaltyPoint.objects.get_or_create(customer=request.user)
+        try:
+            loyalty_points = LoyaltyPoint.objects.get(customer=request.user)
+        except LoyaltyPoint.DoesNotExist:
+            return Response({"error": "No loyalty points found for this user."}, status=status.HTTP_404_NOT_FOUND)
         
         if loyalty_points.points < amount:
             return Response({"error": "Insufficient points."}, status=status.HTTP_400_BAD_REQUEST)
@@ -276,6 +301,7 @@ class LoyaltyPointView(APIView):
             "message": f"{amount} points successfully redeemed.",
             "new_loyalty_points": loyalty_points.points
         })
+
 
 class FavoriteStylistViewSet(viewsets.ModelViewSet):
     serializer_class = FavoriteStylistSerializer
@@ -311,7 +337,7 @@ class PasswordResetView(APIView):
         responses={200: "Password reset email sent."}
     )
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         User = get_user_model()
@@ -325,7 +351,6 @@ class PasswordResetView(APIView):
             return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirmView(APIView):
-    # FIXED: Changed 'permissions.Any' to the correct 'permissions.AllowAny'
     permission_classes = [permissions.AllowAny]
     serializer_class = PasswordResetConfirmSerializer
     
@@ -335,7 +360,7 @@ class PasswordResetConfirmView(APIView):
         responses={200: "Password has been reset."}
     )
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         # Here you would typically validate the UID and token
         # For simplicity, we'll just "reset" the password
@@ -352,6 +377,6 @@ class UserReferralView(APIView):
             "referral_code": user.referral_code,
             "referral_link": request.build_absolute_uri(reverse('register')) + f"?ref={user.referral_code}",
             "referrals_made": ReferralSerializer(referrals, many=True).data,
-            "referral_bonus_info": "Earn 100 points for each friend who signs up and books an appointment!" # This could be a SalonSetting
+            "referral_bonus_info": "Earn 100 points for each friend who signs up and books an appointment!"
         }
         return Response(response_data)
