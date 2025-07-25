@@ -6,21 +6,29 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 async function request(endpoint: string, options: RequestInit = {}) {
     const token = Cookies.get('access_token');
     
+    // Start with the headers provided in the options, or a new Headers object
     const headers = new Headers(options.headers);
 
+    // Add the Authorization header if a token exists
     if (token) {
         headers.set('Authorization', `Bearer ${token}`);
     }
     
     let body = options.body;
 
-    if (body instanceof FormData) {
-        // For FormData, we let the browser set the Content-Type header with the correct boundary.
-        // So, we don't set it here.
-    } else if (body && typeof body !== 'string') {
-        body = JSON.stringify(body);
-        headers.set('Content-Type', 'application/json');
+    // Determine the correct Content-Type based on the body
+    if (body) {
+        if (body instanceof FormData) {
+            // Let the browser set the Content-Type for FormData, so we remove any existing one.
+            headers.delete('Content-Type');
+        } else if (typeof body !== 'string') {
+            // If the body is an object, stringify it and set the correct JSON header.
+            body = JSON.stringify(body);
+            headers.set('Content-Type', 'application/json');
+        }
+        // If body is a string, we assume the Content-Type is already correctly set if needed.
     }
+
 
     const config: RequestInit = {
         ...options,
@@ -36,12 +44,14 @@ async function request(endpoint: string, options: RequestInit = {}) {
             try {
                 errorData = await response.json();
             } catch (e) {
+                // If the response is not JSON, use the status text.
                 errorData = { detail: response.statusText };
             }
             const message = errorData.detail || `An error occurred: ${response.statusText}`;
             throw new Error(message);
         }
         
+        // Handle responses with no content
         if (response.status === 204) {
             return null;
         }
