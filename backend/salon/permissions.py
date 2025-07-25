@@ -15,52 +15,34 @@ class IsOwnerOrAdmin(permissions.BasePermission):
     Custom permission to only allow owners of an object or an admin to edit it.
     """
     def has_object_permission(self, request, view, obj):
+        # Admin has access to all objects
         if request.user and request.user.is_authenticated and request.user.role == 'admin':
             return True
-        # For Appointment, Review, LoyaltyPoint, check if the request.user is the customer
-        if hasattr(obj, 'customer') and obj.customer == request.user:
-            return True
-        # For Stylist, check if the request.user is the stylist's associated user
-        if hasattr(obj, 'user') and obj.user == request.user and request.user.role == 'stylist':
-            return True
+        
+        # Check if the object has a 'customer' and if it matches the request user
+        if hasattr(obj, 'customer'):
+            return obj.customer == request.user
+        
+        # Check if the object has a 'user' (like Stylist model) and if it matches
+        if hasattr(obj, 'user'):
+            return obj.user == request.user
+            
         return False
 
-class IsStylistOrAdmin(permissions.BasePermission):
+class IsAdminOrStylist(permissions.BasePermission):
     """
-    Custom permission to only allow stylists or administrators to edit/view.
+    Custom permission to only allow administrators or stylists to access a resource.
     """
     def has_permission(self, request, view):
-        if request.user and request.user.is_authenticated:
-            return request.user.role in ['stylist', 'admin']
-        return False
+        return request.user and request.user.is_authenticated and request.user.role in ['admin', 'stylist']
 
-    def has_object_permission(self, request, view, obj):
-        if request.user and request.user.is_authenticated and request.user.role == 'admin':
-            return True
-        if request.user and request.user.is_authenticated and request.user.role == 'stylist':
-            if isinstance(obj, Stylist):
-                return obj.user == request.user
-            if isinstance(obj, Appointment):
-                return obj.stylist.user == request.user
-        return False
-
-class IsCustomerOrAdmin(permissions.BasePermission):
+class IsOwner(permissions.BasePermission):
     """
-    Custom permission to only allow customers or administrators to edit/view.
+    Custom permission to only allow the owner of an object to access it.
     """
-    def has_permission(self, request, view):
-        if request.user and request.user.is_authenticated:
-            return request.user.role in ['customer', 'admin']
-        return False
-
     def has_object_permission(self, request, view, obj):
-        if request.user and request.user.is_authenticated and request.user.role == 'admin':
-            return True
-        if request.user and request.user.is_authenticated and request.user.role == 'customer':
-            if isinstance(obj, LoyaltyPoint):
-                return obj.customer == request.user
-            if isinstance(obj, Appointment):
-                return obj.customer == request.user
-            if isinstance(obj, Review):
-                return obj.customer == request.user
+        if hasattr(obj, 'customer'):
+            return obj.customer == request.user
+        if hasattr(obj, 'user'): # Fallback for other user-linked models
+            return obj.user == request.user
         return False
