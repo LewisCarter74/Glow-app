@@ -1,161 +1,115 @@
+
 import Cookies from 'js-cookie';
-import { Appointment, Service, Stylist, Review, LoyaltyPoints, UserProfile, Category, ReferralInfo, InspiredWork } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-async function request(endpoint: string, options: RequestInit = {}) {
-    const token = Cookies.get('access_token');
-    
-    // Start with the headers provided in the options, or a new Headers object
-    const headers = new Headers(options.headers);
-
-    // Add the Authorization header if a token exists
-    if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-    }
-    
-    let body = options.body;
-
-    // Determine the correct Content-Type based on the body
-    if (body) {
-        if (body instanceof FormData) {
-            // Let the browser set the Content-Type for FormData, so we remove any existing one.
-            headers.delete('Content-Type');
-        } else if (typeof body !== 'string') {
-            // If the body is an object, stringify it and set the correct JSON header.
-            body = JSON.stringify(body);
-            headers.set('Content-Type', 'application/json');
-        }
-        // If body is a string, we assume the Content-Type is already correctly set if needed.
-    }
-
-
-    const config: RequestInit = {
-        ...options,
-        headers,
-        body,
-    };
-
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch (e) {
-                // If the response is not JSON, use the status text.
-                errorData = { detail: response.statusText };
-            }
-            const message = errorData.detail || `An error occurred: ${response.statusText}`;
-            throw new Error(message);
-        }
-        
-        // Handle responses with no content
-        if (response.status === 204) {
-            return null;
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('API request error:', error);
-        throw error;
-    }
+interface RequestOptions {
+  method?: string;
+  headers?: { [key: string]: string };
+  body?: any;
 }
 
-const get = (endpoint: string, options?: RequestInit) => request(endpoint, { ...options, method: 'GET' });
-const post = (endpoint: string, body: any, options?: RequestInit) => request(endpoint, { ...options, method: 'POST', body });
-const put = (endpoint: string, body: any, options?: RequestInit) => request(endpoint, { ...options, method: 'PUT', body });
-const del_ = (endpoint: string, options?: RequestInit) => request(endpoint, { ...options, method: 'DELETE' });
+async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+  const token = Cookies.get('access_token');
+  const headers: { [key: string]: string } = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
 
-// ============================================================================
-// AUTHENTICATION
-// ============================================================================
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-export const login = (credentials: object) => post('/api/salon/login/', credentials);
-export const register = (userData: object) => post('/api/salon/register/', userData);
-export const requestPasswordReset = (email: object) => post('/api/salon/password-reset/', email);
-export const confirmPasswordReset = (data: object) => post('/api/salon/password-reset/confirm/', data);
+  const config: RequestInit = {
+    method: options.method || 'GET',
+    headers,
+  };
 
-// ============================================================================
-// USER PROFILE
-// ============================================================================
-
-export const getProfile = (): Promise<UserProfile> => get('/api/salon/profile/');
-export const updateProfile = (profileData: FormData): Promise<UserProfile> => {
-    return put('/api/salon/profile/', profileData);
-};
-
-// ============================================================================
-// SERVICES & CATEGORIES
-// ============================================================================
-
-export const getServices = (): Promise<Service[]> => get('/api/salon/services/');
-export const getService = (id: number): Promise<Service> => get(`/api/salon/services/${id}/`);
-export const getCategories = (): Promise<Category[]> => get('/api/salon/categories/');
-
-// ============================================================================
-// STYLISTS
-// =================================S===========================================
-
-export const getStylists = (): Promise<Stylist[]> => get('/api/salon/stylists/');
-export const getStylist = (id: number): Promise<Stylist> => get(`/api/salon/stylists/${id}/`);
-export const getAvailableStylistsForService = (serviceId: number): Promise<Stylist[]> => {
-    return get(`/api/salon/stylists/available-for-service/?service_id=${serviceId}`);
-};
-export const getFavoriteStylists = (): Promise<any[]> => get('/api/salon/favorites/');
-export const addFavoriteStylist = (stylistId: number): Promise<any> => post('/api/salon/favorites/', { stylist_id: stylistId });
-export const removeFavoriteStylist = (stylistId: number): Promise<any> => del_(`/api/salon/favorites/${stylistId}/`);
-
-// ============================================================================
-// APPOINTMENTS & BOOKING
-// ============================================================================
-
-export const getAppointments = (): Promise<Appointment[]> => get('/api/salon/appointments/');
-export const createAppointment = (appointmentData: object): Promise<Appointment> => post('/api/salon/appointments/', appointmentData);
-export const cancelAppointment = (id: number): Promise<any> => post(`/api/salon/appointments/${id}/cancel/`, {});
-export const getAvailability = (date: string, serviceIds: number[], stylistId?: number): Promise<any> => {
-    const params = new URLSearchParams({ date, service_ids: serviceIds.join(',') });
-    if (stylistId) {
-        params.append('stylist_id', stylistId.toString());
+  if (options.body) {
+    if (options.body instanceof FormData) {
+      delete headers['Content-Type']; // Let browser set Content-Type for FormData
+      config.body = options.body;
+    } else {
+      config.body = JSON.stringify(options.body);
     }
-    return get(`/api/salon/appointments/availability/?${params.toString()}`);
+  }
+
+  const response = await fetch(`${API_URL}${url}`, config);
+
+  if (!response.ok) {
+    let errorData;
+    try {
+      errorData = await response.json();
+    } catch (e) {
+      errorData = { message: response.statusText };
+    }
+    throw new Error(errorData.message || 'An error occurred');
+  }
+
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  return response.json();
+}
+
+// Authentication
+export const login = (credentials: object) => request('/salon/login/', { method: 'POST', body: credentials });
+export const register = (userData: object) => request('/salon/register/', { method: 'POST', body: userData });
+export const getProfile = () => request('/salon/profile/');
+export const updateProfile = (profileData: any) => request('/salon/profile/', { method: 'PUT', body: profileData });
+
+
+// Services
+export const getServices = () => request('/salon/services/');
+export const getService = (id: number) => request(`/salon/services/${id}/`);
+export const createService = (data: object) => request('/salon/services/', { method: 'POST', body: data });
+export const updateService = (id: number, data: object) => request(`/salon/services/${id}/`, { method: 'PUT', body: data });
+export const deleteService = (id: number) => request(`/salon/services/${id}/`, { method: 'DELETE' });
+
+
+// Stylists
+export const getStylists = () => request('/salon/stylists/');
+export const getStylist = (id: number) => request(`/salon/stylists/${id}/`);
+export const getAvailableStylists = (serviceId: number) => request(`/salon/stylists/available-for-service/?service_id=${serviceId}`);
+
+
+// Appointments
+export const getAppointments = () => request('/salon/appointments/');
+export const createAppointment = (appointmentData: object) => request('/salon/appointments/', { method: 'POST', body: appointmentData });
+export const cancelAppointment = (id: number) => request(`/salon/appointments/${id}/cancel/`, { method: 'POST' });
+export const getAvailability = (params: { date: string, service_ids: string, stylist_id?: string }) => {
+    const urlParams = new URLSearchParams(params as any).toString();
+    return request(`/salon/appointments/availability/?${urlParams}`);
 };
 
-// ============================================================================
-// REVIEWS
-// ============================================================================
 
-export const getReviews = (stylistId?: number): Promise<Review[]> => {
-    const url = stylistId ? `/api/salon/reviews/?stylist_id=${stylistId}` : '/api/salon/reviews/';
-    return get(url);
+// Reviews
+export const getReviews = (stylistId?: number) => {
+    const url = stylistId ? `/salon/reviews/?stylist_id=${stylistId}` : '/salon/reviews/';
+    return request(url);
 };
-export const leaveReview = (reviewData: object): Promise<Review> => post('/api/salon/reviews/', reviewData);
+export const createReview = (reviewData: object) => request('/salon/reviews/', { method: 'POST', body: reviewData });
 
 
-// ============================================================================
-// LOYALTY & REFERRALS
-// ============================================================================
+// Promotions
+export const getPromotions = () => request('/salon/promotions/');
 
-export const getLoyaltyPoints = (): Promise<LoyaltyPoints> => get('/api/salon/loyalty-points/');
-export const redeemLoyaltyPoints = (data: { amount: number }): Promise<{ message: string; new_loyalty_points: number }> => {
-    return post('/api/salon/loyalty-points/redeem/', data);
-};
-export const getReferralInfo = (): Promise<ReferralInfo> => get('/api/salon/referrals/');
+// Inspired Work
+export const getInspiredWork = () => request('/salon/inspired-work/');
 
-// ============================================================================
-// AI & Inspired Work
-// ============================================================================
 
-export const getAIRecommendations = (preferences?: string, image?: File): Promise<{ task_id: string }> => {
-    const formData = new FormData();
-    if (preferences) formData.append('preferences', preferences);
-    if (image) formData.append('image', image);
-    return post('/api/salon/ai-style-recommendation/', formData);
-};
+// Favorites
+export const getFavorites = () => request('/salon/favorites/');
+export const addFavorite = (stylistId: number) => request('/salon/favorites/', { method: 'POST', body: { stylist: stylistId } });
+export const removeFavorite = (stylistId: number) => request(`/salon/favorites/${stylistId}/`, { method: 'DELETE' });
 
-export const getAIRecommendationResult = (taskId: string): Promise<any> => {
-    return get(`/api/salon/ai-style-recommendation/result/${taskId}/`);
-};
 
-export const getInspiredWork = (): Promise<InspiredWork[]> => get('/api/salon/inspired-work/');
+// User Account Management
+export const getReferralInfo = () => request('/salon/referrals/');
+export const requestPasswordReset = (email: string) => request('/salon/password-reset/', { method: 'POST', body: { email } });
+export const confirmPasswordReset = (data: object) => request('/salon/password-reset/confirm/', { method: 'POST', body: data });
+
+// Loyalty Points
+export const getLoyaltyPoints = () => request('/salon/loyalty-points/');
+export const redeemLoyaltyPoints = (amount: number) => request('/salon/loyalty-points/redeem/', { method: 'POST', body: { amount } });
