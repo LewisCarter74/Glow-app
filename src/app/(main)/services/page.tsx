@@ -10,18 +10,8 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { fetchServices } from '@/lib/api';
-
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  duration_minutes: number;
-  category: string; 
-  category_name: string; 
-  imageUrl: string | null; 
-}
+import { getServices } from '@/lib/api';
+import { Service } from '@/lib/types';
 
 const serviceCategories = ['Hair', 'Nails', 'Beauty'];
 const FALLBACK_IMAGE_URL = 'https://placehold.co/150x100';
@@ -31,8 +21,8 @@ export default function ServicesPage() {
 
   useEffect(() => {
     // Fetch all services
-    fetchServices()
-      .then((data) => {
+    getServices()
+      .then((data: Service[]) => {
         setServices(data);
       })
       .catch((error) => {
