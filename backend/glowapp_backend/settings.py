@@ -105,24 +105,26 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Add STATIC_ROOT for collectstatic
 
-# Supabase Storage Configuration
-# Set these environment variables in your .env file
-AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_S3_ENDPOINT_URL')
-AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('SUPABASE_STORAGE_BUCKET_NAME')
+# Supabase Storage Configuration using django-storages
+# IMPORTANT: Make sure your .env file uses these exact 'AWS_' prefixed variable names.
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL') # e.g., https://<project-ref>.supabase.co/storage/v1
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
 AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = None # Or 'public-read' if you want files to be publicly accessible by default
+AWS_DEFAULT_ACL = 'public-read' # Files will be publicly readable
 AWS_S3_SIGNATURE_VERSION = 's3v4'
-AWS_QUERYSTRING_AUTH = False # Set to False if you want clean URLs without query parameters
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME') # e.g., 'us-east-1' - find in your Supabase project settings
+AWS_QUERYSTRING_AUTH = False # Creates clean URLs
 
-# Use S3Boto3Storage for default file storage (for media files like images)
+# Set default file storage to S3Boto3Storage for media files
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-if AWS_STORAGE_BUCKET_NAME:
-    MEDIA_URL = f'https://{AWS_S3_ENDPOINT_URL.split("://")[1]}/{AWS_STORAGE_BUCKET_NAME}/'
+
+# Construct the media URL
+if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
+    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
 else:
     MEDIA_URL = '/media/'
-
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
