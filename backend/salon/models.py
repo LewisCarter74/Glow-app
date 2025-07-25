@@ -215,7 +215,7 @@ class FavoriteStylist(models.Model):
 
 class SalonSetting(models.Model):
     id = models.BigAutoField(primary_key=True)
-    key = models.CharField(max_length=255, unique=I'll create the `InspiredWork` model in `backend/salon/models.py`.True, help_text="e.g., 'loyalty_points_per_booking', 'cancellation_policy'")
+    key = models.CharField(max_length=255, unique=True, help_text="e.g., 'loyalty_points_per_booking', 'cancellation_policy'")
     value = models.TextField()
     description = models.TextField(blank=True, null=True)
 
