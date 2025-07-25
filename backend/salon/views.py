@@ -31,6 +31,7 @@ from drf_yasg import openapi
 from django.db import transaction
 import pytz
 from django.db.models import Q
+from rest_framework.parsers import JSONParser
 
 
 class InspiredWorkViewSet(viewsets.ModelViewSet):
@@ -50,6 +51,7 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
+    parser_classes = [JSONParser]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -310,7 +312,7 @@ class FavoriteStylistViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return FavoriteStylist.objects.filter(customer=self.request.user).order_by('-added_at')
 
-    def perform_create(self, serializer):
+    def perform__create(self, serializer):
         serializer.save(customer=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
