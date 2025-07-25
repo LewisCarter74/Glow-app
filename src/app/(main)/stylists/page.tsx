@@ -1,8 +1,8 @@
 import StylistCard from "@/components/StylistCard";
-import { fetchStylists } from "@/lib/api";
+import { getStylists } from "@/lib/api";
 
 export default async function StylistsPage() {
-  const stylists = await fetchStylists();
+  const stylists = await getStylists();
 
   return (
     <div className="container mx-auto px-4 py-16">
