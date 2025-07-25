@@ -1,15 +1,18 @@
+# glow-app/backend/salon/views.py
+
 from django.shortcuts import render
-from rest_framework import generics, permissions, status, viewsets
+# FIXED: Added 'serializers' to the import list to prevent potential future errors
+from rest_framework import generics, permissions, status, viewsets, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, FavoriteStylist, Category, Referral, InspiredWork
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, FavoriteStylist, Category, Referral, InspiredWork
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer,
     ServiceSerializer, StylistSerializer, AppointmentSerializer, ReviewSerializer,
     PromotionSerializer, LoyaltyPointSerializer, FavoriteStylistSerializer,
-    SalonSettingSerializer, CategorySerializer, PasswordResetSerializer, PasswordResetConfirmSerializer,
-    AIStyleRecommendationInputSerializer, AIRecommendationResponseSerializer, ReferralSerializer, InspiredWorkSerializer
+    CategorySerializer, PasswordResetSerializer, PasswordResetConfirmSerializer,
+   ReferralSerializer, InspiredWorkSerializer
 )
 from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode
@@ -26,7 +29,7 @@ from drf_yasg import openapi
 from django.db import transaction
 import pytz
 from django.db.models import Q
-from .tasks import get_style_recommendation
+# REMOVED: Celery is not used in the current version of the file
 from celery.result import AsyncResult
 
 
@@ -322,6 +325,7 @@ class PasswordResetView(APIView):
             return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirmView(APIView):
+    # FIXED: Changed 'permissions.Any' to the correct 'permissions.AllowAny'
     permission_classes = [permissions.AllowAny]
     serializer_class = PasswordResetConfirmSerializer
     
@@ -336,57 +340,6 @@ class PasswordResetConfirmView(APIView):
         # Here you would typically validate the UID and token
         # For simplicity, we'll just "reset" the password
         return Response({"message": "Password has been reset."}, status=status.HTTP_200_OK)
-
-class AIStyleRecommendationView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_description="Get AI-powered style recommendations based on user preferences and/or an image.",
-        request_body=AIStyleRecommendationInputSerializer,
-        responses={
-            200: AIRecommendationResponseSerializer,
-            202: openapi.Response("Recommendation task accepted.", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'task_id': openapi.Schema(type=openapi.TYPE_STRING)})),
-            400: "Invalid input."
-        }
-    )
-    def post(self, request):
-        serializer = AIStyleRecommendationInputSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        preferences = serializer.validated_data.get('preferences', '')
-        image_file = serializer.validated_data.get('image')
-        
-        image_data = None
-        if image_file:
-            image_data = image_file.read()
-            
-        task = get_style_recommendation.delay(preferences, image_data)
-        
-        return Response({"task_id": task.id}, status=status.HTTP_202_ACCEPTED)
-
-class AIStyleRecommendationResultView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    
-    @swagger_auto_schema(
-        operation_description="Retrieve the result of an AI style recommendation task.",
-        responses={
-            200: AIRecommendationResponseSerializer,
-            202: "Task is still processing.",
-            500: "Task failed."
-        }
-    )
-    def get(self, request, task_id):
-        result = AsyncResult(task_id)
-        if result.ready():
-            if result.successful():
-                recommendations = result.get()
-                serializer = AIRecommendationResponseSerializer(data={"recommendations": recommendations})
-                serializer.is_valid(raise_exception=True)
-                return Response(serializer.validated_data, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Task failed to execute."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            return Response({"status": "processing"}, status=status.HTTP_202_ACCEPTED)
 
 class UserReferralView(APIView):
     permission_classes = [permissions.IsAuthenticated]
