@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, InspiredWork # Import InspiredWork
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 
 @admin.register(User)
@@ -88,3 +88,9 @@ class SalonSettingAdmin(admin.ModelAdmin):
 class PortfolioImageAdmin(admin.ModelAdmin):
     list_display = ('stylist', 'description', 'uploaded_at')
     raw_id_fields = ('stylist',)
+
+# Register the InspiredWork model
+@admin.register(InspiredWork)
+class InspiredWorkAdmin(admin.ModelAdmin):
+    list_display = ('title', 'created_at')
+    search_fields = ('title', 'description')
