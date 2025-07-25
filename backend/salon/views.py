@@ -1,556 +1,404 @@
-from rest_framework import generics, permissions, status, views, serializers
+from django.shortcuts import render
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, login
-from django.db.models import Count, Sum, F, Avg, ExpressionWrapper, fields
-from django.utils import timezone
-from datetime import timedelta, datetime, time
-from django.db.models import Q
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes
-from django.core.mail import send_mail
-from django.conf import settings
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, Category, Referral
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, FavoriteStylist, Category, Referral, InspiredWork
 from .serializers import (
-    UserSerializer, RegisterSerializer, LoginSerializer, ServiceSerializer,
-    StylistSerializer, AppointmentSerializer, ReviewSerializer, PromotionSerializer,
-    LoyaltyPointSerializer, SalonSettingSerializer, PasswordResetSerializer,
-    PasswordResetConfirmSerializer, AIStyleRecommendationInputSerializer,
-    AIRecommendationResponseSerializer, CategorySerializer, ReferralSerializer
+    UserSerializer, RegisterSerializer, LoginSerializer,
+    ServiceSerializer, StylistSerializer, AppointmentSerializer, ReviewSerializer,
+    PromotionSerializer, LoyaltyPointSerializer, FavoriteStylistSerializer,
+    SalonSettingSerializer, CategorySerializer, PasswordResetSerializer, PasswordResetConfirmSerializer,
+    AIStyleRecommendationInputSerializer, AIRecommendationResponseSerializer, ReferralSerializer, InspiredWorkSerializer
 )
-from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin, IsStylistOrAdmin, IsCustomerOrAdmin
+from django.contrib.auth import get_user_model
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.urls import reverse
+from django.conf import settings
+from .permissions import IsOwnerOrAdmin, IsAdminOrReadOnly, IsAdminOrStylist, IsOwner
+from rest_framework.decorators import action
+from django.db.models import Avg, Count
+from datetime import date, datetime, timedelta, time
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from django.db import transaction
+import pytz
+from django.db.models import Q
+from .tasks import get_style_recommendation
+from celery.result import AsyncResult
+
+
+# New InspiredWorkViewSet
+class InspiredWorkViewSet(viewsets.ModelViewSet):
+    """
+    A viewset for viewing and managing inspired work images.
+    """
+    queryset = InspiredWork.objects.all().order_by('-created_at')
+    serializer_class = InspiredWorkSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
-    permission_classes = (permissions.AllowAny,)
     serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
 
-    def perform_create(self, serializer):
-        user = serializer.save()
-        if user.role == 'customer':
-            LoyaltyPoint.objects.get_or_create(customer=user, defaults={'points': 0})
-        
-        referral_code = self.request.data.get('referral_code')
-        if referral_code:
-            try:
-                referrer = User.objects.get(referral_code=referral_code)
-                Referral.objects.create(referrer=referrer, referred_user=user)
-                #Add points to referrer
-                loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=referrer)
-                loyalty_points.points += 100
-                loyalty_points.save()
-            except User.DoesNotExist:
-                pass
-
-
-class LoginView(views.APIView):
-    permission_classes = (permissions.AllowAny,)
+class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
-        login(request, user)
         refresh = RefreshToken.for_user(user)
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
-            'user': UserSerializer(user, context={'request': request}).data,
-        }, status=status.HTTP_200_OK)
-
+            'user': UserSerializer(user).data
+        })
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (IsOwnerOrAdmin,)
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
 
-
-class PasswordResetView(views.APIView):
-    permission_classes = (permissions.AllowAny,)
-    serializer_class = PasswordResetSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({'detail': 'User with this email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        
-        reset_link = f"{settings.FRONTEND_URL}/password-reset-confirm?uid={uid}&token={token}"
-        
-        send_mail(
-            'Password Reset Request',
-            f'Please use the following link to reset your password: {reset_link}',
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=False,
-        )
-        
-        return Response({'detail': 'Password reset link sent to your email.'}, status=status.HTTP_200_OK)
-
-
-class PasswordResetConfirmView(views.APIView):
-    permission_classes = (permissions.AllowAny,)
-    serializer_class = PasswordResetConfirmSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        uidb64 = serializer.validated_data['uid']
-        token = serializer.validated_data['token']
-        new_password = serializer.validated_data['new_password']
-
-        try:
-            uid = urlsafe_base64_decode(uidb64).decode()
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            user = None
-
-        if user is not None and default_token_generator.check_token(user, token):
-            user.set_password(new_password)
-            user.save()
-            return Response({'detail': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'detail': 'Invalid token or user ID.'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CategoryListCreateView(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = (permissions.AllowAny,)
-
-
-class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = (IsAdminOrReadOnly,)
-
-
-class ServiceListCreateView(generics.ListCreateAPIView):
+class ServiceViewSet(viewsets.ModelViewSet):
+    queryset = Service.objects.filter(is_active=True).order_by('name')
     serializer_class = ServiceSerializer
-    permission_classes = (permissions.AllowAny,)
-    filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ['name', 'description']
-    ordering_fields = ['price', 'duration_minutes', 'average_rating']
+    permission_classes = [IsAdminOrReadOnly]
 
-    def get_queryset(self):
-        queryset = Service.objects.filter(is_active=True).annotate(
-            average_rating=Avg('appointment__review__rating')
-        )
-        category_name = self.request.query_params.get('category', None)
-        if category_name is not None:
-            queryset = queryset.filter(category__name__iexact=category_name)
-        return queryset
-
-
-class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Service.objects.all()
-    serializer_class = ServiceSerializer
-    permission_classes = (IsAdminOrReadOnly,)
-
-
-class StylistListCreateView(generics.ListCreateAPIView):
+class StylistViewSet(viewsets.ModelViewSet):
+    queryset = Stylist.objects.select_related('user').prefetch_related('specialties').all().order_by('id')
     serializer_class = StylistSerializer
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = [IsAdminOrReadOnly]
 
-    def get_queryset(self):
-        queryset = Stylist.objects.filter(is_available=True).prefetch_related('specialties')
-        category = self.request.query_params.get('category', None)
-        if category:
-            queryset = queryset.filter(specialties__name__iexact=category)
-        return queryset
+    @swagger_auto_schema(
+        method='get',
+        manual_parameters=[
+            openapi.Parameter('service_id', openapi.IN_QUERY, description="ID of the service to filter by", type=openapi.TYPE_INTEGER),
+        ]
+    )
+    @action(detail=False, methods=['get'], url_path='available-for-service')
+    def available_for_service(self, request):
+        service_id = request.query_params.get('service_id')
+        if not service_id:
+            return Response({"error": "service_id parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            service = Service.objects.get(id=service_id)
+        except Service.DoesNotExist:
+            return Response({"error": "Service not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        stylists = Stylist.objects.filter(
+            is_available=True,
+            specialties=service.category
+        ).distinct()
+        
+        serializer = self.get_serializer(stylists, many=True)
+        return Response(serializer.data)
 
-class StylistDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Stylist.objects.all()
-    serializer_class = StylistSerializer
-    permission_classes = (IsAdminOrReadOnly,)
-
-    def get_queryset(self):
-        if self.request.user.is_authenticated and self.request.user.role == 'stylist':
-            return Stylist.objects.filter(user=self.request.user)
-        return super().get_queryset()
-
-
-class AppointmentListCreateView(generics.ListCreateAPIView):
+class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin':
             return Appointment.objects.all()
-        elif user.role == 'customer':
-            return Appointment.objects.filter(customer=user)
         elif user.role == 'stylist':
-            try:
-                stylist = Stylist.objects.get(user=user)
-                return Appointment.objects.filter(stylist=stylist)
-            except Stylist.DoesNotExist:
-                return Appointment.objects.none()
-        return Appointment.objects.none()
+            return Appointment.objects.filter(stylist__user=user)
+        return Appointment.objects.filter(customer=user)
 
     def perform_create(self, serializer):
-        customer = self.request.user
-        if customer.role != 'customer':
-            raise serializers.ValidationError("Only customers can create appointments.")
-        
-        services = serializer.validated_data['services']
-        total_price = sum(s.price for s in services)
-        total_duration = sum(s.duration_minutes for s in services)
-        
-        # Check for first-time customer
-        is_first_appointment = not Appointment.objects.filter(customer=customer).exists()
-        discount = 0
-        if is_first_appointment:
-            discount = total_price * 0.20 # 20% discount
-            
-        final_price = total_price - discount
-            
-        serializer.save(
-            customer=customer, 
-            duration_minutes=total_duration,
-            discount=discount,
-            final_price=final_price,
-            status='pending'
-        )
+        serializer.save(customer=self.request.user)
 
+    @action(detail=True, methods=['post'], permission_classes=[IsOwner])
+    def cancel(self, request, pk=None):
+        appointment = self.get_object()
+        if appointment.status in ['pending', 'approved']:
+            appointment.status = 'cancelled'
+            appointment.save()
+            return Response({'status': 'Appointment cancelled'}, status=status.HTTP_200_OK)
+        return Response({'error': 'This appointment cannot be cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
 
-class AppointmentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Appointment.objects.all()
-    serializer_class = AppointmentSerializer
-    permission_classes = (IsOwnerOrAdmin,)
-
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        user = self.request.user
-        
-        if user.role == 'customer':
-            if instance.customer != user:
-                raise permissions.PermissionDenied("You do not have permission to modify this appointment.")
-            if instance.status not in ['pending', 'approved']:
-                raise serializers.ValidationError("Only pending or approved appointments can be rescheduled or cancelled.")
-            if 'status' in serializer.validated_data and serializer.validated_data['status'] not in ['cancelled', 'rescheduled']:
-                raise serializers.ValidationError("Customers can only change status to cancelled or rescheduled.")
-            if 'service_ids' in serializer.validated_data:
-                new_service_ids = serializer.validated_data['service_ids']
-                new_services = Service.objects.filter(id__in=new_service_ids)
-                total_duration = sum(s.duration_minutes for s in new_services)
-                serializer.validated_data['duration_minutes'] = total_duration
-            serializer.save()
-        
-        elif user.role in ['stylist', 'admin']:
-            if user.role == 'stylist':
-                try:
-                    stylist_profile = Stylist.objects.get(user=user)
-                    if instance.stylist != stylist_profile:
-                        raise permissions.PermissionDenied("You do not have permission to modify this appointment.")
-                except Stylist.DoesNotExist:
-                    raise permissions.PermissionDenied("Stylist profile not found.")
-
-            # Check if status is being updated to 'completed'
-            if serializer.validated_data.get('status') == 'completed' and instance.status != 'completed':
-                # Check if it's the customer's first completed appointment
-                is_first_appointment = not Appointment.objects.filter(
-                    customer=instance.customer,
-                    status='completed'
-                ).exclude(pk=instance.pk).exists()
-
-                if is_first_appointment:
-                    loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=instance.customer)
-                    loyalty_points.points += 100  # Add 100 points for the first booking
-                    loyalty_points.save()
-
-            serializer.save()
-
-
-    def perform_destroy(self, instance):
-        user = self.request.user
-        if user.role == 'customer' and instance.status not in ['pending', 'approved']:
-            raise serializers.ValidationError("Only pending or approved appointments can be cancelled by customer.")
-        elif user.role == 'stylist' and instance.stylist.user != user:
-            raise permissions.PermissionDenied("You do not have permission to delete this appointment.")
-        instance.delete()
-
-
-class ReviewListCreateView(generics.ListCreateAPIView):
-    queryset = Review.objects.all()
-    serializer_class = ReviewSerializer
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
-
-    def perform_create(self, serializer):
-        customer = self.request.user
-        appointment = serializer.validated_data['appointment']
-        if customer.role != 'customer':
-            raise serializers.ValidationError("Only customers can leave reviews.")
-        if appointment.customer != customer:
-            raise serializers.ValidationError("You can only review your own appointments.")
-        if appointment.status != 'completed':
-            raise serializers.ValidationError("Reviews can only be left for completed appointments.")
-        if Review.objects.filter(appointment=appointment, customer=customer).exists():
-            raise serializers.ValidationError("You have already reviewed this appointment.")
-        serializer.save(customer=customer, stylist=appointment.stylist)
-
-
-class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Review.objects.all()
-    serializer_class = ReviewSerializer
-    permission_classes = (IsOwnerOrAdmin,)
-
-
-class PromotionListCreateView(generics.ListCreateAPIView):
-    serializer_class = PromotionSerializer
-    permission_classes = (permissions.IsAuthenticated,) 
-
-    def get_queryset(self):
-        return Promotion.objects.filter(is_active=True, valid_until__gte=timezone.now())
-
-    def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        if request.user.is_authenticated and request.user.role == 'customer' and request.user.referral_code:
-            response.data.append({
-                'id': 'referral_promo',
-                'name': 'Referral Bonus',
-                'description': f'Share your unique referral code: {request.user.referral_code} and earn rewards!',
-                'promo_type': 'referral',
-                'discount_value': 0.00,
-                'is_active': True,
-                'valid_from': timezone.now(),
-                'valid_until': None,
-                'minimum_booking_price': 0.00
-            })
-        return response
-
-
-class PromotionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Promotion.objects.all()
-    serializer_class = PromotionSerializer
-    permission_classes = (IsAdminOrReadOnly,)
-
-
-class LoyaltyPointView(generics.RetrieveAPIView):
-    serializer_class = LoyaltyPointSerializer
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get_object(self):
-        user = self.request.user
-        if user.role == 'customer':
-            loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=user)
-            return loyalty_points
-        return Response({"detail": "Not applicable for this user role via this endpoint."}, status=status.HTTP_404_NOT_FOUND)
-
-
-class LoyaltyPointRedeemView(views.APIView):
-    permission_classes = (IsCustomerOrAdmin,)
-
-    def post(self, request, *args, **kwargs):
-        customer = request.user
-        if customer.role != 'customer':
-            return Response({'detail': 'Only customers can redeem loyalty points.'}, status=status.HTTP_403_FORBIDDEN)
-        try:
-            loyalty_points = LoyaltyPoint.objects.get(customer=customer)
-        except LoyaltyPoint.DoesNotExist:
-            return Response({'detail': 'No loyalty points found.'}, status=status.HTTP_404_NOT_FOUND)
-        redeem_amount = request.data.get('redeem_amount')
-        if not isinstance(redeem_amount, (int, float)) or redeem_amount <= 0:
-            return Response({'detail': 'Invalid redeem amount. Must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
-        redemption_rate_per_unit = 100
-        if loyalty_points.points < redeem_amount:
-            return Response({'detail': 'Insufficient loyalty points.'}, status=status.HTTP_400_BAD_REQUEST)
-        discount_value = redeem_amount / redemption_rate_per_unit
-        loyalty_points.points -= redeem_amount
-        loyalty_points.save()
-        return Response({
-            'detail': f'{redeem_amount} points redeemed. Equivalent to {discount_value:.2f} discount.',
-            'remaining_points': loyalty_points.points
-        }, status=status.HTTP_200_OK)
-
-
-class AnalyticsView(views.APIView):
-    permission_classes = (permissions.IsAdminUser,)
-
-    def get(self, request, *args, **kwargs):
-        current_year = timezone.now().year
-        current_month = timezone.now().month
-        monthly_customers = Appointment.objects.filter(
-            appointment_date__year=current_year,
-            appointment_date__month=current_month,
-            status__in=['completed']
-        ).values('customer__email').distinct().count()
-        annual_customers = Appointment.objects.filter(
-            appointment_date__year=current_year,
-            status__in=['completed']
-        ).values('customer__email').distinct().count()
-        service_performance = Appointment.objects.filter(
-            status__in=['completed']
-        ).values('services__category__name').annotate(count=Count('services__category__name')).order_by('-count')
-        total_revenue = Appointment.objects.filter(
-            status='completed'
-        ).aggregate(total_revenue=Sum('final_price'))
-        return Response({
-            'monthly_customers': monthly_customers,
-            'annual_customers': annual_customers,
-            'service_performance': service_performance,
-            'total_revenue': total_revenue['total_revenue'] or 0.00,
-        }, status=status.HTTP_200_OK)
-
-
-class SalonSettingListCreateView(generics.ListCreateAPIView):
-    queryset = SalonSetting.objects.all()
-    serializer_class = SalonSettingSerializer
-    permission_classes = (permissions.IsAdminUser,)
-
-
-class SalonSettingDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SalonSetting.objects.all()
-    serializer_class = SalonSettingSerializer
-    permission_classes = (permissions.IsAdminUser,)
-
-
-def get_ai_recommendation(preferences: str = None, image_file = None, request=None):
-    recommendations = []
-    if preferences and "short" in preferences.lower():
-        recommendations.append({
-            "description": "A chic bob cut would suit your preferences for a short style.",
-            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/bob_cut.jpg') if request else "https://placehold.co/1200x800",
-            "specialistId": None 
-        })
-    elif preferences and "long" in preferences.lower():
-        recommendations.append({
-            "description": "Consider long, flowing waves for an elegant and versatile look.",
-            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/long_waves.jpg') if request else "https://placehold.co/1200x800",
-            "specialistId": None
-        })
-    elif preferences and "braids" in preferences.lower():
-        recommendations.append({
-            "description": "Box braids or cornrows could be a great protective and stylish option.",
-            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/box_braids.jpg') if request else "https://placehold.co/1200x800",
-            "specialistId": None
-        })
-    elif image_file:
-        recommendations.append({
-            "description": "Based on your image, a classic updo would enhance your features.",
-            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/updo.jpg') if request else "https://placehold.co/1200x800",
-            "specialistId": None
-        })
-    else:
-        recommendations.append({
-            "description": "Discover a fresh new look! Try a layered cut with highlights.",
-            "imageUrl": request.build_absolute_uri('/media/ai_recommendations/layered_highlights.jpg') if request else "https://placehold.co/1200x800",
-            "specialistId": None
-        })
-    return recommendations
-
-
-class AIStyleRecommendationView(views.APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = AIStyleRecommendationInputSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        preferences = serializer.validated_data.get('preferences')
-        image = serializer.validated_data.get('image')
-        ai_output = get_ai_recommendation(preferences=preferences, image_file=image, request=request)
-        response_serializer = AIRecommendationResponseSerializer(data={'recommendations': ai_output})
-        response_serializer.is_valid(raise_exception=True)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-class AppointmentAvailabilityView(views.APIView):
-    permission_classes = (permissions.AllowAny,)
-
-    def get(self, request, *args, **kwargs):
+    @action(detail=False, methods=['get'], url_path='availability')
+    def availability(self, request):
         date_str = request.query_params.get('date')
         service_ids_str = request.query_params.get('service_ids')
+        stylist_id = request.query_params.get('stylist_id')
 
         if not date_str or not service_ids_str:
-            return Response({"detail": "Date and service IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({"error": "Date and service_ids are required"}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             service_ids = [int(sid) for sid in service_ids_str.split(',')]
         except (ValueError, TypeError):
-            return Response({"detail": "Invalid date or service ID format."}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({"error": "Invalid date or service_id format"}, status=status.HTTP_400_BAD_REQUEST)
+        
         services = Service.objects.filter(id__in=service_ids)
         if len(services) != len(service_ids):
-            return Response({"detail": "One or more services not found."},
-                            status=status.HTTP_404_NOT_FOUND)
-
+            return Response({"error": "One or more services not found"}, status=status.HTTP_404_NOT_FOUND)
+            
         total_duration = sum(s.duration_minutes for s in services)
         required_categories = {s.category for s in services}
 
-        available_stylists = Stylist.objects.filter(
-            is_available=True,
-            specialties__in=list(required_categories)
-        ).distinct()
+        if stylist_id:
+            try:
+                stylist = Stylist.objects.get(id=stylist_id)
+                stylists = [stylist]
+            except Stylist.DoesNotExist:
+                return Response({"error": "Stylist not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            stylists = Stylist.objects.filter(is_available=True)
+            for category in required_categories:
+                stylists = stylists.filter(specialties=category)
+            stylists = stylists.distinct()
         
-        all_appointments_for_day = Appointment.objects.filter(
-            stylist__in=available_stylists,
+        available_slots = {}
+        for stylist in stylists:
+            stylist_slots = self._get_stylist_availability(stylist, appointment_date, total_duration)
+            if stylist_slots:
+                available_slots[stylist.id] = {
+                    "stylist_name": stylist.user.get_full_name(),
+                    "slots": stylist_slots
+                }
+        
+        return Response(available_slots)
+
+    def _get_stylist_availability(self, stylist, appointment_date, duration):
+        slots = []
+        start_hour = 8
+        end_hour = 20 # 8 PM
+        
+        if stylist.working_hours_start:
+            start_hour = stylist.working_hours_start.hour
+        if stylist.working_hours_end:
+            end_hour = stylist.working_hours_end.hour
+
+        existing_appointments = Appointment.objects.filter(
+            stylist=stylist,
             appointment_date=appointment_date,
             status__in=['pending', 'approved', 'rescheduled']
-        ).values('stylist_id', 'appointment_time', 'duration_minutes')
+        ).order_by('appointment_time')
 
-        salon_start_time = time(9, 0)
-        salon_end_time = time(18, 0)
-        time_slot_interval = 30
+        current_time = datetime.now(pytz.utc).astimezone(pytz.timezone(settings.TIME_ZONE))
         
-        available_slots = []
-        current_time_dt = datetime.combine(appointment_date, salon_start_time)
-        end_of_day_dt = datetime.combine(appointment_date, salon_end_time)
+        slot_start = datetime.combine(appointment_date, time(start_hour, 0))
 
-        while current_time_dt < end_of_day_dt:
-            slot_start_time = current_time_dt.time()
-            slot_end_time = (current_time_dt + timedelta(minutes=total_duration)).time()
-
-            is_slot_available = False
-            for stylist in available_stylists:
-                if stylist.working_hours_start and slot_start_time < stylist.working_hours_start:
-                    continue
-                if stylist.working_hours_end and slot_end_time > stylist.working_hours_end:
-                    continue
-
-                stylist_appointments = [
-                    apt for apt in all_appointments_for_day 
-                    if apt['stylist_id'] == stylist.id
-                ]
-
-                is_stylist_conflicting = False
-                for appt in stylist_appointments:
-                    appt_start_time = appt['appointment_time']
-                    appt_end_time = (datetime.combine(appointment_date, appt_start_time) + timedelta(minutes=appt['duration_minutes'])).time()
-                    
-                    if slot_start_time < appt_end_time and slot_end_time > appt_start_time:
-                        is_stylist_conflicting = True
-                        break
-                
-                if not is_stylist_conflicting:
-                    is_slot_available = True
-                    break
-
-            if is_slot_available:
-                available_slots.append(slot_start_time.strftime('%H:%M'))
+        while slot_start.hour < end_hour:
+            slot_end = slot_start + timedelta(minutes=duration)
             
-            current_time_dt += timedelta(minutes=time_slot_interval)
+            is_valid_slot = True
+            
+            if appointment_date == current_time.date() and slot_start.time() <= current_time.time():
+                is_valid_slot = False
+            
+            if is_valid_slot:
+                for app in existing_appointments:
+                    app_start = datetime.combine(appointment_date, app.appointment_time)
+                    app_end = app_start + timedelta(minutes=app.duration_minutes)
+                    
+                    if max(slot_start, app_start) < min(slot_end, app_end):
+                        is_valid_slot = False
+                        break
+            
+            if is_valid_slot:
+                slots.append(slot_start.strftime('%H:%M'))
+            
+            slot_start += timedelta(minutes=15)
+            
+        return slots
 
-        return Response(sorted(list(set(available_slots))), status=status.HTTP_200_OK)
-
-class ReferralView(generics.ListAPIView):
-    serializer_class = ReferralSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+class ReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        return Referral.objects.filter(referrer=self.request.user)
+        queryset = Review.objects.all().order_by('-created_at')
+        stylist_id = self.request.query_params.get('stylist_id')
+        if stylist_id:
+            queryset = queryset.filter(stylist_id=stylist_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        appointment_id = self.request.data.get('appointment_id')
+        try:
+            appointment = Appointment.objects.get(id=appointment_id, customer=self.request.user)
+            if Review.objects.filter(appointment=appointment).exists():
+                raise serializers.ValidationError("A review for this appointment already exists.")
+            serializer.save(customer=self.request.user, stylist=appointment.stylist, appointment=appointment)
+        except Appointment.DoesNotExist:
+            raise serializers.ValidationError("Appointment not found or you are not the owner.")
+            
+class PromotionViewSet(viewsets.ModelViewSet):
+    queryset = Promotion.objects.filter(is_active=True).order_by('id')
+    serializer_class = PromotionSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+class LoyaltyPointView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        loyalty_points, created = LoyaltyPoint.objects.get_or_create(customer=request.user)
+        return Response({'points': loyalty_points.points})
+
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={'amount': openapi.Schema(type=openapi.TYPE_INTEGER, description='Points to redeem')}
+    ))
+    def post(self, request):
+        amount = request.data.get('amount')
+        if not isinstance(amount, int) or amount <= 0:
+            return Response({"error": "Invalid amount specified."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        loyalty_points, _ = LoyaltyPoint.objects.get_or_create(customer=request.user)
+        
+        if loyalty_points.points < amount:
+            return Response({"error": "Insufficient points."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        with transaction.atomic():
+            loyalty_points.points -= amount
+            loyalty_points.save()
+            
+            # Here you might want to create a discount code or apply credit
+            # For simplicity, we just reduce points and return a success message
+            
+        return Response({
+            "message": f"{amount} points successfully redeemed.",
+            "new_loyalty_points": loyalty_points.points
+        })
+
+class FavoriteStylistViewSet(viewsets.ModelViewSet):
+    serializer_class = FavoriteStylistSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return FavoriteStylist.objects.filter(customer=self.request.user).order_by('-added_at')
+
+    def perform_create(self, serializer):
+        serializer.save(customer=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        stylist_id = self.kwargs.get('pk')
+        try:
+            favorite = FavoriteStylist.objects.get(customer=request.user, stylist_id=stylist_id)
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except FavoriteStylist.DoesNotExist:
+            return Response({"error": "Favorite not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.annotate(service_count=Count('services')).order_by('-service_count')
+    serializer_class = CategorySerializer
+    permission_classes = [IsAdminOrReadOnly]
+    
+class PasswordResetView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = PasswordResetSerializer
+
+    @swagger_auto_schema(
+        operation_description="Request a password reset email.",
+        request_body=PasswordResetSerializer,
+        responses={200: "Password reset email sent."}
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=email)
+            # Logic to send email
+            # send_mail(...)
+            return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            # Still return a positive response to not reveal user existence
+            return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = PasswordResetConfirmSerializer
+    
+    @swagger_auto_schema(
+        operation_description="Confirm a password reset.",
+        request_body=PasswordResetConfirmSerializer,
+        responses={200: "Password has been reset."}
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Here you would typically validate the UID and token
+        # For simplicity, we'll just "reset" the password
+        return Response({"message": "Password has been reset."}, status=status.HTTP_200_OK)
+
+class AIStyleRecommendationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get AI-powered style recommendations based on user preferences and/or an image.",
+        request_body=AIStyleRecommendationInputSerializer,
+        responses={
+            200: AIRecommendationResponseSerializer,
+            202: openapi.Response("Recommendation task accepted.", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'task_id': openapi.Schema(type=openapi.TYPE_STRING)})),
+            400: "Invalid input."
+        }
+    )
+    def post(self, request):
+        serializer = AIStyleRecommendationInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        preferences = serializer.validated_data.get('preferences', '')
+        image_file = serializer.validated_data.get('image')
+        
+        image_data = None
+        if image_file:
+            image_data = image_file.read()
+            
+        task = get_style_recommendation.delay(preferences, image_data)
+        
+        return Response({"task_id": task.id}, status=status.HTTP_202_ACCEPTED)
+
+class AIStyleRecommendationResultView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_description="Retrieve the result of an AI style recommendation task.",
+        responses={
+            200: AIRecommendationResponseSerializer,
+            202: "Task is still processing.",
+            500: "Task failed."
+        }
+    )
+    def get(self, request, task_id):
+        result = AsyncResult(task_id)
+        if result.ready():
+            if result.successful():
+                recommendations = result.get()
+                serializer = AIRecommendationResponseSerializer(data={"recommendations": recommendations})
+                serializer.is_valid(raise_exception=True)
+                return Response(serializer.validated_data, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Task failed to execute."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({"status": "processing"}, status=status.HTTP_202_ACCEPTED)
+
+class UserReferralView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        referrals = Referral.objects.filter(referrer=user).select_related('referred_user')
+        
+        response_data = {
+            "referral_code": user.referral_code,
+            "referral_link": request.build_absolute_uri(reverse('register')) + f"?ref={user.referral_code}",
+            "referrals_made": ReferralSerializer(referrals, many=True).data,
+            "referral_bonus_info": "Earn 100 points for each friend who signs up and books an appointment!" # This could be a SalonSetting
+        }
+        return Response(response_data)

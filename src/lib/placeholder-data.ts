@@ -10,6 +10,9 @@ export type Stylist = {
   rating: number;
   reviewCount: number;
   portfolio: string[];
+  user: string; // Added user property
+  specialties: string[]; // Added specialties property
+  location: string; // Added location property
 };
 
 export type Service = {
@@ -47,6 +50,9 @@ export const stylists: Stylist[] = [
       'https://placehold.co/600x400',
       'https://placehold.co/600x400',
     ],
+    user: 'amina.d',
+    specialties: ['Balayage', 'Coloring'],
+    location: 'Downtown Salon',
   },
   {
     id: '2',
@@ -62,6 +68,9 @@ export const stylists: Stylist[] = [
       'https://placehold.co/600x400',
       'https://placehold.co/600x400',
     ],
+    user: 'beverly.o',
+    specialties: ['Nail Art', 'Manicure'],
+    location: 'Uptown Spa',
   },
   {
     id: '3',
@@ -76,6 +85,9 @@ export const stylists: Stylist[] = [
         'https://placehold.co/600x400',
         'https://placehold.co/600x400',
     ],
+    user: 'chidi.o',
+    specialties: ['Haircuts', 'Styling'],
+    location: 'Main Street Barbershop',
   },
 ];
 

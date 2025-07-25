@@ -105,6 +105,17 @@ class Stylist(models.Model):
     def __str__(self):
         return self.user.get_full_name() or self.user.email
 
+class InspiredWork(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    image = models.ImageField(upload_to='inspired_work/')
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+
 class PortfolioImage(models.Model):
     id = models.BigAutoField(primary_key=True)
     stylist = models.ForeignKey(Stylist, on_delete=models.CASCADE, related_name='portfolio_images')
@@ -204,7 +215,7 @@ class FavoriteStylist(models.Model):
 
 class SalonSetting(models.Model):
     id = models.BigAutoField(primary_key=True)
-    key = models.CharField(max_length=255, unique=True, help_text="e.g., 'loyalty_points_per_booking', 'cancellation_policy'")
+    key = models.CharField(max_length=255, unique=I'll create the `InspiredWork` model in `backend/salon/models.py`.True, help_text="e.g., 'loyalty_points_per_booking', 'cancellation_policy'")
     value = models.TextField()
     description = models.TextField(blank=True, null=True)
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category, Referral
+from .models import User, Service, Stylist, Appointment, Review, Promotion, LoyaltyPoint, SalonSetting, PortfolioImage, FavoriteStylist, Category, Referral, InspiredWork
 from django.contrib.auth import authenticate
 from django.db.models import Avg, Q, Count
 from django.db.models.functions import ExtractMinute
@@ -8,6 +8,20 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from datetime import timedelta, datetime, time
 import pytz
+
+class InspiredWorkSerializer(serializers.ModelSerializer):
+    imageUrl = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InspiredWork
+        fields = ('id', 'title', 'description', 'image', 'imageUrl', 'created_at')
+        read_only_fields = ('imageUrl', 'created_at')
+        extra_kwargs = {'image': {'write_only': True}}
+
+    def get_imageUrl(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return obj.image.url
+        return None
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

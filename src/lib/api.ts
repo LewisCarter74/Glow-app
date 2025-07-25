@@ -1,679 +1,94 @@
-const BASE_URL = 'http://127.0.0.1:8000/api'; 
+import { get, post, put, del_ } from './api_helpers';
+import { Appointment, Service, Stylist, Review, LoyaltyPoints, UserProfile, Category, ReferralInfo, InspiredWork } from './types';
 
-const getAccessToken = () => {
-  return localStorage.getItem('accessToken');
+// ============================================================================
+// AUTHENTICATION
+// ============================================================================
+
+export const login = (credentials: object) => post('/api/salon/login/', credentials);
+export const register = (userData: object) => post('/api/salon/register/', userData);
+export const requestPasswordReset = (email: object) => post('/api/salon/password-reset/', email);
+export const confirmPasswordReset = (data: object) => post('/api/salon/password-reset/confirm/', data);
+
+// ============================================================================
+// USER PROFILE
+// ============================================================================
+
+export const getProfile = (): Promise<UserProfile> => get('/api/salon/profile/');
+export const updateProfile = (profileData: FormData): Promise<UserProfile> => {
+    return put('/api/salon/profile/', profileData);
 };
 
-interface AuthenticatedFetchOptions extends RequestInit {
-  headers?: Record<string, string>;
-}
+// ============================================================================
+// SERVICES & CATEGORIES
+// ============================================================================
 
-async function authenticatedFetch(url: string, options: AuthenticatedFetchOptions = {}) {
-  const accessToken = getAccessToken();
-  const headers: Record<string, string> = {
-    ...(options.headers || {}),
-    'Content-Type': 'application/json',
-  };
+export const getServices = (): Promise<Service[]> => get('/api/salon/services/');
+export const getService = (id: number): Promise<Service> => get(`/api/salon/services/${id}/`);
+export const getCategories = (): Promise<Category[]> => get('/api/salon/categories/');
 
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
+// ============================================================================
+// STYLISTS
+// ============================================================================
 
-  const response = await fetch(url, { ...options, headers });
+export const getStylists = (): Promise<Stylist[]> => get('/api/salon/stylists/');
+export const getStylist = (id: number): Promise<Stylist> => get(`/api/salon/stylists/${id}/`);
+export const getAvailableStylistsForService = (serviceId: number): Promise<Stylist[]> => {
+    return get(`/api/salon/stylists/available-for-service/?service_id=${serviceId}`);
+};
+export const getFavoriteStylists = (): Promise<any[]> => get('/api/salon/favorites/');
+export const addFavoriteStylist = (stylistId: number): Promise<any> => post('/api/salon/favorites/', { stylist_id: stylistId });
+export const removeFavoriteStylist = (stylistId: number): Promise<any> => del_(`/api/salon/favorites/${stylistId}/`);
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      console.warn('Authentication error: Access token might be expired or invalid.');
+// ============================================================================
+// APPOINTMENTS & BOOKING
+// ============================================================================
+
+export const getAppointments = (): Promise<Appointment[]> => get('/api/salon/appointments/');
+export const createAppointment = (appointmentData: object): Promise<Appointment> => post('/api/salon/appointments/', appointmentData);
+export const cancelAppointment = (id: number): Promise<any> => post(`/api/salon/appointments/${id}/cancel/`, {});
+export const getAvailability = (date: string, serviceIds: number[], stylistId?: number): Promise<any> => {
+    const params = new URLSearchParams({ date, service_ids: serviceIds.join(',') });
+    if (stylistId) {
+        params.append('stylist_id', stylistId.toString());
     }
-    const errorData = await response.json();
-    throw new Error(errorData.detail || JSON.stringify(errorData));
-  }
-
-  return response;
-}
-
-interface Service {
-    id: string;
-    name: string;
-    description: string;
-    price: number;
-    duration_minutes: number;
-    category: string; 
-    category_name: string; 
-    imageUrl: string | null;
-}
-
-interface Category {
-    id: string;
-    name: string;
-}
-
-interface Stylist {
-    id: string;
-    user: {
-        first_name: string;
-        last_name: string;
-    };
-    specialties: string[];
-}
-
-interface AppointmentData {
-    service_ids: string[];
-    stylist_id: string;
-    appointment_date: string;
-    appointment_time: string;
-}
-
-export async function fetchCategories(): Promise<Category[]> {
-  try {
-    const response = await fetch(`${BASE_URL}/categories/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: Category[] = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-}
-
-export async function fetchStylists(category?: string) {
-  try {
-    let url = `${BASE_URL}/stylists/`;
-    if (category) {
-      url += `?category=${encodeURIComponent(category)}`;
-    }
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: Stylist[] = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching stylists:", error);
-    return [];
-  }
-}
-
-export async function fetchStylistById(id: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/stylists/${id}/`); 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: Stylist = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`Error fetching stylist with id ${id}:`, error);
-    return null;
-  }
-}
-
-export async function fetchPromotions() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/promotions/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching promotions:", error);
-    return [];
-  }
-}
-
-export async function registerUser(userData: object) {
-  try {
-    const response = await fetch(`${BASE_URL}/register/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || JSON.stringify(errorData));
-    }
-
-    const data = await response.json();
-    console.log('Registration successful:', data);
-    return data;
-  } catch (error) {
-    console.error('Registration error:', error);
-    throw error;
-  }
-}
-
-export async function loginUser(email: string, password: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/login/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || JSON.stringify(errorData));
-    }
-
-    const data = await response.json();
-    console.log('Login successful:', data);
-
-    localStorage.setItem('accessToken', data.access);
-    localStorage.setItem('refreshToken', data.refresh);
-    localStorage.setItem('user', JSON.stringify(data.user));
-
-    return data.user;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-}
-
-export async function fetchUserProfile() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/profile/`, {
-      method: 'GET',
-    });
-
-    const data = await response.json();
-    console.log('User profile:', data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    throw error;
-  }
-}
-
-export const logoutUser = () => {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  console.log('User logged out. localStorage items cleared.');
-  console.log('localStorage after logout - accessToken:', localStorage.getItem('accessToken'));
-  console.log('localStorage after logout - refreshToken:', localStorage.getItem('refreshToken'));
-  console.log('localStorage after logout - user:', localStorage.getItem('user'));
+    return get(`/api/salon/appointments/availability/?${params.toString()}`);
 };
 
-export async function requestPasswordReset(email: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/password-reset/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
+// ============================================================================
+// REVIEWS
+// ============================================================================
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || JSON.stringify(errorData));
-    }
+export const getReviews = (stylistId?: number): Promise<Review[]> => {
+    const url = stylistId ? `/api/salon/reviews/?stylist_id=${stylistId}` : '/api/salon/reviews/';
+    return get(url);
+};
+export const leaveReview = (reviewData: object): Promise<Review> => post('/api/salon/reviews/', reviewData);
 
-    const data = await response.json();
-    console.log('Password reset email request successful:', data);
-    return data;
-  } catch (error) {
-    console.error('Error requesting password reset:', error);
-    throw error;
-  }
-}
 
-export async function confirmPasswordReset(uid: string, token: string, new_password: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/password-reset-confirm/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ uid, token, new_password }),
-    });
+// ============================================================================
+// LOYALTY & REFERRALS
+// ============================================================================
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || JSON.stringify(errorData));
-    }
+export const getLoyaltyPoints = (): Promise<LoyaltyPoints> => get('/api/salon/loyalty-points/');
+export const redeemLoyaltyPoints = (data: { amount: number }): Promise<{ message: string; new_loyalty_points: number }> => {
+    return post('/api/salon/loyalty-points/', data);
+};
+export const getReferralInfo = (): Promise<ReferralInfo> => get('/api/salon/referrals/');
 
-    const data = await response.json();
-    console.log('Password reset confirmation successful:', data);
-    return data;
-  } catch (error) {
-    console.error('Error confirming password reset:', error);
-    throw error;
-  }
-}
+// ============================================================================
+// AI & Inspired Work
+// ============================================================================
 
-export async function fetchServices(filters?: { category?: string; search?: string; }) {
-  try {
-    let url = new URL(`${BASE_URL}/services/`);
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
-        }
-      }
-    }
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: Service[] = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching services:", error);
-    return [];
-  }
-}
+export const getAIRecommendations = (preferences?: string, image?: File): Promise<{ task_id: string }> => {
+    const formData = new FormData();
+    if (preferences) formData.append('preferences', preferences);
+    if (image) formData.append('image', image);
+    return post('/api/salon/ai-style-recommendation/', formData);
+};
 
-export async function createService(serviceData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/services/`, {
-      method: 'POST',
-      body: JSON.stringify(serviceData),
-    });
-    const data = await response.json();
-    console.log('Service created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating service:', error);
-    throw error;
-  }
-}
+export const getAIRecommendationResult = (taskId: string): Promise<any> => {
+    return get(`/api/salon/ai-style-recommendation/result/${taskId}/`);
+};
 
-export async function fetchServiceById(id: string) {
-  try {
-    const response = await fetch(`${BASE_URL}/services/${id}/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data: Service = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`Error fetching service with id ${id}:`, error);
-    return null;
-  }
-}
-
-export async function updateService(id: string, serviceData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/services/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(serviceData),
-    });
-    const data = await response.json();
-    console.log(`Service ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating service ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deleteService(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/services/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Service ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error deleting service ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function createStylist(stylistData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/stylists/`, {
-      method: 'POST',
-      body: JSON.stringify(stylistData),
-    });
-    const data = await response.json();
-    console.log('Stylist created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating stylist:', error);
-    throw error;
-  }
-}
-
-export async function updateStylist(id: string, stylistData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/stylists/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(stylistData),
-    });
-    const data = await response.json();
-    console.log(`Stylist ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating stylist ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deleteStylist(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/stylists/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Stylist ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error deleting stylist ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function fetchAppointments() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/appointments/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching appointments:", error);
-    throw error;
-  }
-}
-
-export async function createAppointment(appointmentData: AppointmentData) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/appointments/`, {
-      method: 'POST',
-      body: JSON.stringify(appointmentData),
-    });
-    const data = await response.json();
-    console.log('Appointment created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating appointment:', error);
-    throw error;
-  }
-}
-
-export async function fetchAppointmentById(id: string) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/appointments/${id}/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`Error fetching appointment with id ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function updateAppointment(id: string, appointmentData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/appointments/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(appointmentData),
-    });
-    const data = await response.json();
-    console.log(`Appointment ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating appointment ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deleteAppointment(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/appointments/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Appointment ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error deleting appointment ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function fetchReviews() {
-  try {
-    const response = await fetch(`${BASE_URL}/reviews/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching reviews:", error);
-    return [];
-  }
-}
-
-export async function createReview(reviewData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/reviews/`, {
-      method: 'POST',
-      body: JSON.stringify(reviewData),
-    });
-    const data = await response.json();
-    console.log('Review created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating review:', error);
-    throw error;
-  }
-}
-
-export async function fetchReviewById(id: string) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/reviews/${id}/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error(`Error fetching review with id ${id}:`, error);
-    return null;
-  }
-}
-
-export async function updateReview(id: string, reviewData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/reviews/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(reviewData),
-    });
-    const data = await response.json();
-    console.log(`Review ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating review ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deleteReview(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/reviews/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Review ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error deleting review ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function createPromotion(promotionData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/promotions/`, {
-      method: 'POST',
-      body: JSON.stringify(promotionData),
-    });
-    const data = await response.json();
-    console.log('Promotion created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating promotion:', error);
-    throw error;
-  }
-}
-
-export async function updatePromotion(id: string, promotionData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/promotions/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(promotionData),
-    });
-    const data = await response.json();
-    console.log(`Promotion ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating promotion ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deletePromotion(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/promotions/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Promotion ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error deleting promotion ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function getLoyaltyPoints() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/loyalty-points/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching loyalty points:", error);
-    throw error;
-  }
-}
-
-export async function redeemLoyaltyPoints(redeemData: { amount: number }) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/loyalty-points/redeem/`, {
-      method: 'POST',
-      body: JSON.stringify(redeemData),
-    });
-    const data = await response.json();
-    console.log('Loyalty points redeemed successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error redeeming loyalty points:', error);
-    throw error;
-  }
-}
-
-export async function fetchAnalytics() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/analytics/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching analytics:", error);
-    throw error;
-  }
-}
-
-export async function fetchSalonSettings() {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/salon-settings/`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching salon settings:", error);
-    throw error;
-  }
-}
-
-export async function createSalonSetting(settingData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/salon-settings/`, {
-      method: 'POST',
-      body: JSON.stringify(settingData),
-    });
-    const data = await response.json();
-    console.log('Salon setting created successfully:', data);
-    return data;
-  } catch (error) {
-    console.error('Error creating salon setting:', error);
-    throw error;
-  }
-}
-
-export async function updateSalonSetting(id: string, settingData: object) {
-  try {
-    const response = await authenticatedFetch(`${BASE_URL}/salon-settings/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(settingData),
-    });
-    const data = await response.json();
-    console.log(`Salon setting ${id} updated successfully:`, data);
-    return data;
-  } catch (error) {
-    console.error(`Error updating salon setting ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function deleteSalonSetting(id: string) {
-  try {
-    await authenticatedFetch(`${BASE_URL}/salon-settings/${id}/`, {
-      method: 'DELETE',
-    });
-    console.log(`Salon setting ${id} deleted successfully.`);
-    return { success: true };
-  } catch (error)
- {
-    console.error(`Error deleting salon setting ${id}:`, error);
-    throw error;
-  }
-}
-
-export async function fetchAvailableSlots(date: string, serviceIds: string[]): Promise<string[]> {
-    if (!date || serviceIds.length === 0) {
-        return [];
-    }
-    try {
-        const url = new URL(`${BASE_URL}/appointments/availability/`);
-        url.searchParams.append('date', date);
-        url.searchParams.append('service_ids', serviceIds.join(','));
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data: string[] = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Error fetching available slots:", error);
-        return [];
-    }
-}
+export const getInspiredWork = (): Promise<InspiredWork[]> => get('/api/salon/inspired-work/');

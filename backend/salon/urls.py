@@ -1,60 +1,32 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
-    RegisterView, LoginView, UserProfileView, PasswordResetView, PasswordResetConfirmView,
-    CategoryListCreateView, CategoryDetailView, ServiceListCreateView, ServiceDetailView,
-    StylistListCreateView, StylistDetailView, AppointmentListCreateView, AppointmentDetailView,
-    ReviewListCreateView, ReviewDetailView, PromotionListCreateView, PromotionDetailView,
-    LoyaltyPointView, LoyaltyPointRedeemView, AnalyticsView, SalonSettingListCreateView,
-    SalonSettingDetailView, AIStyleRecommendationView, AppointmentAvailabilityView, ReferralView
+    RegisterView, LoginView, UserProfileView,
+    ServiceViewSet, StylistViewSet, AppointmentViewSet, ReviewViewSet,
+    PromotionViewSet, LoyaltyPointView, FavoriteStylistViewSet,
+    CategoryViewSet, PasswordResetView, PasswordResetConfirmView,
+    AIStyleRecommendationView, AIStyleRecommendationResultView, UserReferralView, InspiredWorkViewSet
 )
 
+router = DefaultRouter()
+router.register(r'services', ServiceViewSet)
+router.register(r'stylists', StylistViewSet)
+router.register(r'appointments', AppointmentViewSet, basename='appointment')
+router.register(r'reviews', ReviewViewSet, basename='review')
+router.register(r'promotions', PromotionViewSet)
+router.register(r'favorites', FavoriteStylistViewSet, basename='favorite-stylist')
+router.register(r'categories', CategoryViewSet)
+router.register(r'inspired-work', InspiredWorkViewSet)
+
 urlpatterns = [
-    # Auth
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
+    path('loyalty-points/', LoyaltyPointView.as_view(), name='loyalty-points'),
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
-    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-    
-    # Categories
-    path('categories/', CategoryListCreateView.as_view(), name='category-list-create'),
-    path('categories/<int:pk>/', CategoryDetailView.as_view(), name='category-detail'),
-
-    # Services
-    path('services/', ServiceListCreateView.as_view(), name='service-list-create'),
-    path('services/<int:pk>/', ServiceDetailView.as_view(), name='service-detail'),
-
-    # Stylists
-    path('stylists/', StylistListCreateView.as_view(), name='stylist-list-create'),
-    path('stylists/<int:pk>/', StylistDetailView.as_view(), name='stylist-detail'),
-
-    # Appointments
-    path('appointments/', AppointmentListCreateView.as_view(), name='appointment-list-create'),
-    path('appointments/<int:pk>/', AppointmentDetailView.as_view(), name='appointment-detail'),
-    path('appointments/availability/', AppointmentAvailabilityView.as_view(), name='appointment-availability'),
-
-    # Reviews
-    path('reviews/', ReviewListCreateView.as_view(), name='review-list-create'),
-    path('reviews/<int:pk>/', ReviewDetailView.as_view(), name='review-detail'),
-
-    # Promotions
-    path('promotions/', PromotionListCreateView.as_view(), name='promotion-list-create'),
-    path('promotions/<int:pk>/', PromotionDetailView.as_view(), name='promotion-detail'),
-
-    # Loyalty Points
-    path('loyalty-points/', LoyaltyPointView.as_view(), name='loyalty-point-view'),
-    path('loyalty-points/redeem/', LoyaltyPointRedeemView.as_view(), name='loyalty-point-redeem'),
-    
-    # Referrals
-    path('referrals/', ReferralView.as_view(), name='referral-view'),
-
-    # Analytics
-    path('analytics/', AnalyticsView.as_view(), name='analytics-view'),
-
-    # Salon Settings
-    path('salon-settings/', SalonSettingListCreateView.as_view(), name='salon-setting-list-create'),
-    path('salon-settings/<int:pk>/', SalonSettingDetailView.as_view(), name='salon-setting-detail'),
-
-    # AI
-    path('ai/style-recommendation/', AIStyleRecommendationView.as_view(), name='ai-style-recommendation'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('ai-style-recommendation/', AIStyleRecommendationView.as_view(), name='ai-style-recommendation'),
+    path('ai-style-recommendation/result/<str:task_id>/', AIStyleRecommendationResultView.as_view(), name='ai-style-recommendation-result'),
+    path('referrals/', UserReferralView.as_view(), name='user-referrals'),
+    path('', include(router.urls)),
 ]

@@ -16,18 +16,18 @@ import { Star, MapPin, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
+// Updated Stylist interface to match placeholder-data.ts
 interface Stylist {
   id: string;
-  user: {
-    first_name: string;
-    last_name: string;
-  };
+  name: string;
+  specialty: string;
   bio: string;
-  specialties: string[];
+  avatarUrl: string;
+  imageUrl: string;
   rating: number;
   reviewCount: number;
-  imageUrl: string;
-  location: string; // This field is not in the API, so we'll use a placeholder
+  portfolio: string[];
+  // location is not in placeholder, so we'll remove it or handle it as optional if it comes from API
 }
 
 interface StylistCardProps {
@@ -52,7 +52,7 @@ export default function StylistCard({
         <div className="relative w-full h-48 mb-4">
           <Image
             src={stylist.imageUrl}
-            alt={`Photo of ${stylist.user.first_name}`}
+            alt={`Photo of ${stylist.name}`}
             fill 
             style={{ objectFit: 'cover' }} 
             className="rounded-t-lg"
@@ -60,12 +60,13 @@ export default function StylistCard({
           />
         </div>
         <CardTitle>
-          {stylist.user.first_name} {stylist.user.last_name}
+          {stylist.name}
         </CardTitle>
-        <CardDescription className="flex items-center gap-2 text-sm text-muted-foreground">
+        {/* Removing location as it's not in placeholder data */}
+        {/* <CardDescription className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="w-4 h-4" />{' '}
           {stylist.location || 'Location not available'}
-        </CardDescription>
+        </CardDescription> */}
         <div className="flex items-center gap-1 pt-1">
           {[...Array(5)].map((_, i) => (
             <Star
@@ -84,11 +85,10 @@ export default function StylistCard({
       </CardHeader>
       <CardContent className="flex-grow">
         <div className="flex flex-wrap gap-2">
-          {(stylist.specialties || []).map((specialty) => (
-            <Badge key={specialty} variant="secondary">
-              {specialty}
-            </Badge>
-          ))}
+          {/* Displaying specialty directly as it's a string, not an array */}
+          <Badge variant="secondary">
+            {stylist.specialty}
+          </Badge>
         </div>
       </CardContent>
       <CardFooter className="flex gap-2">

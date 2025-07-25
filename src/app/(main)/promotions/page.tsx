@@ -216,7 +216,7 @@ export default function PromotionsPage() {
         <Card className="bg-card shadow-lg border-secondary-foreground/20 flex flex-col">
           <CardHeader>
             <div className="flex items-center gap-4">
-              <div className="bg-secondary p-3 rounded-full">
+              <div className="bg-secondary/10 p-3 rounded-full">
                 <TicketPercent className="w-8 h-8 text-secondary-foreground" />
               </div>
               <CardTitle className="text-secondary-foreground text-2xl">
@@ -231,7 +231,7 @@ export default function PromotionsPage() {
             </p>
           </CardContent>
           <CardFooter>
-            <Button asChild variant="secondary" className="w-full">
+            <Button asChild className="w-full">
               <Link href="/referrals">Get Your Referral Link</Link>
             </Button>
           </CardFooter>
