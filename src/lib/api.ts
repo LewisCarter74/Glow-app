@@ -15,12 +15,11 @@ async function request(endpoint: string, options: RequestInit = {}) {
     let body = options.body;
 
     if (body instanceof FormData) {
-        headers.delete('Content-Type');
+        // For FormData, we let the browser set the Content-Type header with the correct boundary.
+        // So, we don't set it here.
     } else if (body && typeof body !== 'string') {
         body = JSON.stringify(body);
-        if (!headers.has('Content-Type')) {
-            headers.set('Content-Type', 'application/json');
-        }
+        headers.set('Content-Type', 'application/json');
     }
 
     const config: RequestInit = {
