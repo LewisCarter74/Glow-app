@@ -31,7 +31,7 @@ from drf_yasg import openapi
 from django.db import transaction
 import pytz
 from django.db.models import Q
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 
 
 class InspiredWorkViewSet(viewsets.ModelViewSet):
@@ -51,7 +51,7 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
-    parser_classes = [JSONParser]
+    parser_classes = [FormParser, MultiPartParser, JSONParser]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
