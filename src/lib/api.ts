@@ -49,7 +49,7 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
     } catch (e) {
       errorData = { message: response.statusText };
     }
-    throw new Error(errorData.message || 'An error occurred');
+    throw new Error(errorData.detail || errorData.message || 'An error occurred');
   }
 
   if (response.status === 204) {
@@ -112,8 +112,8 @@ export const getInspiredWork = () => request<InspiredWork[]>('/salon/inspired-wo
 
 // Favorites
 export const getFavorites = () => request<any[]>('/salon/favorites/');
-export const addFavorite = (stylistId: number) => request<any>('/salon/favorites/', { method: 'POST', body: { stylist: stylistId } });
-export const removeFavorite = (stylistId: number) => request<void>(`/salon/favorites/${stylistId}/`, { method: 'DELETE' });
+export const addFavorite = (stylistId: number) => request<any>('/salon/favorites/add/', { method: 'POST', body: { stylist_id: stylistId } });
+export const removeFavorite = (stylistId: number) => request<void>(`/salon/favorites/remove/${stylistId}/`, { method: 'DELETE' });
 
 
 // User Account Management

@@ -139,15 +139,16 @@ class StylistSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True
     )
+    is_favorited = serializers.SerializerMethodField()
 
     class Meta:
         model = Stylist
         fields = (
             'id', 'user', 'user_id', 'bio', 'specialties', 'working_hours_start',
             'working_hours_end', 'is_available', 'is_featured', 'image', 
-            'rating', 'reviewCount', 'portfolio', 'imageUrl'
+            'rating', 'reviewCount', 'portfolio', 'imageUrl', 'is_favorited'
         )
-        read_only_fields = ('user', 'rating', 'reviewCount', 'portfolio', 'imageUrl')
+        read_only_fields = ('user', 'rating', 'reviewCount', 'portfolio', 'imageUrl', 'is_favorited')
         extra_kwargs = {'image': {'write_only': True}}
 
     def get_rating(self, obj):
@@ -164,10 +165,18 @@ class StylistSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
             return request.build_absolute_uri(obj.image.url)
+        if obj.user.profile_image and hasattr(obj.user.profile_image, 'url'):
+            return request.build_absolute_uri(obj.user.profile_image.url)
         first_portfolio_image = obj.portfolio_images.first()
         if first_portfolio_image and first_portfolio_image.image:
             return request.build_absolute_uri(first_portfolio_image.image.url)
         return "https://placehold.co/1200x800"
+
+    def get_is_favorited(self, obj):
+        user = self.context['request'].user
+        if user.is_authenticated:
+            return FavoriteStylist.objects.filter(stylist=obj, customer=user).exists()
+        return False
 
 class AppointmentSerializer(serializers.ModelSerializer):
     customer = UserSerializer(read_only=True)
@@ -363,32 +372,34 @@ class LoyaltyPointSerializer(serializers.ModelSerializer):
         read_only_fields = ('customer',)
 
 class FavoriteStylistSerializer(serializers.ModelSerializer):
-    customer = UserSerializer(read_only=True)
     stylist = StylistSerializer(read_only=True)
     stylist_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = FavoriteStylist
-        fields = ('id', 'customer', 'stylist', 'stylist_id', 'added_at')
-        read_only_fields = ('customer', 'added_at')
-        extra_kwargs = {'stylist': {'read_only': True}}
+        fields = ('id', 'stylist', 'stylist_id', 'added_at')
+        read_only_fields = ('added_at',)
 
-    def validate(self, data):
-        stylist_id = data.get('stylist_id')
+    def create(self, validated_data):
+        stylist_id = validated_data.pop('stylist_id')
         customer = self.context['request'].user
-
+        
         try:
             stylist = Stylist.objects.get(id=stylist_id)
         except Stylist.DoesNotExist:
             raise serializers.ValidationError({"stylist_id": "Stylist not found."})
 
-        if self.context['request'].method == 'POST':
-            if FavoriteStylist.objects.filter(customer=customer, stylist=stylist).exists():
-                raise serializers.ValidationError({"detail": "Stylist already in favorites."})
+        favorite, created = FavoriteStylist.objects.get_or_create(
+            customer=customer, 
+            stylist=stylist,
+            defaults=validated_data
+        )
+        
+        if not created:
+            # If it already exists, just return it without doing anything.
+            pass
 
-        data['stylist'] = stylist
-        data['customer'] = customer
-        return data
+        return favorite
 
 class SalonSettingSerializer(serializers.ModelSerializer):
     class Meta:

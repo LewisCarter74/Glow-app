@@ -8,6 +8,5 @@ urlpatterns = [
     path('api/salon/', include('salon.urls')),
 ]
 
-# This is crucial for serving media files locally during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

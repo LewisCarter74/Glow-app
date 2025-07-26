@@ -14,7 +14,7 @@ router.register(r'stylists', StylistViewSet)
 router.register(r'appointments', AppointmentViewSet, basename='appointment')
 router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'promotions', PromotionViewSet)
-router.register(r'favorites', FavoriteStylistViewSet, basename='favorite-stylist')
+router.register(r'favorites', FavoriteStylistViewSet, basename='favorite')
 router.register(r'categories', CategoryViewSet)
 router.register(r'inspired-work', InspiredWorkViewSet)
 router.register(r'loyalty-points', LoyaltyPointViewSet, basename='loyalty-point')
@@ -27,5 +27,7 @@ urlpatterns = [
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('referrals/', UserReferralView.as_view(), name='user-referrals'),
+    path('favorites/add/<int:pk>/', FavoriteStylistViewSet.as_view({'post': 'add'}), name='favorite-add'),
+    path('favorites/remove/<int:pk>/', FavoriteStylistViewSet.as_view({'post': 'remove'}), name='favorite-remove'),
     path('', include(router.urls)),
 ]

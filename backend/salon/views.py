@@ -1,6 +1,6 @@
 # glow-app/backend/salon/views.py
 
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -310,20 +310,34 @@ class LoyaltyPointViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class FavoriteStylistViewSet(viewsets.ModelViewSet):
-    serializer_class = FavoriteStylistSerializer
+class FavoriteStylistViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return FavoriteStylist.objects.filter(customer=self.request.user).order_by('-added_at')
+    def list(self, request):
+        queryset = FavoriteStylist.objects.filter(customer=request.user)
+        serializer = FavoriteStylistSerializer(queryset, many=True)
+        return Response(serializer.data)
 
-    def perform__create(self, serializer):
-        serializer.save(customer=self.request.user)
+    @action(detail=True, methods=['post'])
+    def add(self, request, pk=None):
+        stylist = get_object_or_404(Stylist, pk=pk)
+        favorite, created = FavoriteStylist.objects.get_or_create(
+            customer=request.user,
+            stylist=stylist
+        )
+        serializer = FavoriteStylistSerializer(favorite)
+        if created:
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def destroy(self, request, *args, **kwargs):
-        stylist_id = self.kwargs.get('pk')
+    @action(detail=True, methods=['post'])
+    def remove(self, request, pk=None):
+        stylist = get_object_or_404(Stylist, pk=pk)
         try:
-            favorite = FavoriteStylist.objects.get(customer=request.user, stylist_id=stylist_id)
+            favorite = FavoriteStylist.objects.get(
+                customer=request.user,
+                stylist=stylist
+            )
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except FavoriteStylist.DoesNotExist:
