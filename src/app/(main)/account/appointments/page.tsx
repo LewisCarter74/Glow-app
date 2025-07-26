@@ -81,6 +81,13 @@ export default function AppointmentsPage() {
   const upcomingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'approved');
   const pastAppointments = appointments.filter(a => a.status === 'completed' || a.status === 'cancelled');
 
+  const getStylistName = (appointment: Appointment) => {
+    if (appointment.stylist) {
+        return `${appointment.stylist.user.first_name} ${appointment.stylist.user.last_name}`;
+    }
+    return 'Any Available';
+  }
+
   return (
     <>
       <div className="container mx-auto px-4 py-16">
@@ -99,7 +106,7 @@ export default function AppointmentsPage() {
               {upcomingAppointments.length > 0 ? (
                 upcomingAppointments.map(appt => (
                   <div key={appt.id} className="p-4 border rounded-lg bg-secondary/30">
-                    <p className="font-bold">{appt.services.map(s => s.name).join(', ')} with {appt.stylist.user.first_name}</p>
+                    <p className="font-bold">{appt.services.map(s => s.name).join(', ')} with {getStylistName(appt)}</p>
                     <p className="text-sm text-muted-foreground">{format(new Date(appt.appointment_date), 'EEEE, MMMM do, yyyy')} at {appt.appointment_time}</p>
                     <div className="mt-2">
                       <Button variant="outline" size="sm" className="mr-2" onClick={() => router.push('/booking')}>
@@ -124,7 +131,7 @@ export default function AppointmentsPage() {
               {pastAppointments.length > 0 ? (
                 pastAppointments.map(appt => (
                   <div key={appt.id} className="p-4 border rounded-lg">
-                    <p>{appt.services.map(s => s.name).join(', ')} with {appt.stylist.user.first_name}</p>
+                    <p>{appt.services.map(s => s.name).join(', ')} with {getStylistName(appt)}</p>
                     <p className="text-sm text-muted-foreground">Completed on {format(new Date(appt.appointment_date), 'MMMM do, yyyy')}</p>
                     <div className="mt-2">
                       {appt.can_review && (
@@ -153,7 +160,7 @@ export default function AppointmentsPage() {
             onSubmit={handleReviewSubmit}
             appointmentId={selectedAppointment.id.toString()}
             serviceName={selectedAppointment.services.map(s => s.name).join(', ')}
-            stylistName={`${selectedAppointment.stylist.user.first_name} ${selectedAppointment.stylist.user.last_name}`}
+            stylistName={getStylistName(selectedAppointment)}
         />
       )}
       
