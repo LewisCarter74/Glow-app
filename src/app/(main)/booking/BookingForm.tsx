@@ -79,35 +79,37 @@ export default function BookingForm() {
     fetchServicesAndStylists();
   }, [selectedCategory, debouncedSearchTerm, toast]);
 
-  useEffect(() => {
-      const fetchAvailableTimes = async () => {
-          if (selectedDate && selectedServices.length > 0) {
-              setIsLoadingTimes(true);
-              setAvailableTimes([]); // Clear previous times
-              try {
-                  const params = {
-                    date: format(selectedDate, "yyyy-MM-dd"),
-                    service_ids: selectedServices.join(','),
-                    stylist_id: selectedStylistId !== 'any' ? selectedStylistId : undefined
-                  };
-                  const times = await getAvailability(params);
-                  setAvailableTimes(Object.values(times).flatMap((stylist: any) => stylist.slots));
-              } catch (error) {
-                  console.error("Error fetching available times:", error);
-                  toast({
-                      variant: "destructive",
-                      description: "Could not load available times. Please try again."
-                  });
-              } finally {
-                  setIsLoadingTimes(false);
-              }
-          } else {
-              setAvailableTimes([]);
-          }
-      };
+    useEffect(() => {
+        const fetchAvailableTimes = async () => {
+            if (selectedDate && selectedServices.length > 0) {
+                setIsLoadingTimes(true);
+                setAvailableTimes([]);
+                try {
+                    const params: any = {
+                        date: format(selectedDate, "yyyy-MM-dd"),
+                        service_ids: selectedServices.join(','),
+                    };
+                    if (selectedStylistId !== 'any') {
+                        params.stylist_id = selectedStylistId;
+                    }
+                    const times = await getAvailability(params);
+                    setAvailableTimes(Object.values(times).flatMap((stylist: any) => stylist.slots));
+                } catch (error) {
+                    console.error("Error fetching available times:", error);
+                    toast({
+                        variant: "destructive",
+                        description: "Could not load available times. Please try again."
+                    });
+                } finally {
+                    setIsLoadingTimes(false);
+                }
+            } else {
+                setAvailableTimes([]);
+            }
+        };
 
-      fetchAvailableTimes();
-  }, [selectedDate, selectedServices, toast, selectedStylistId]);
+        fetchAvailableTimes();
+    }, [selectedDate, selectedServices, selectedStylistId, toast]);
 
 
   const availableStylists = useMemo(() => {
