@@ -3,8 +3,6 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-# Explicitly load the .env file from the backend directory
-# This ensures your Supabase credentials are read correctly.
 dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
@@ -12,7 +10,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-super-secret-key-please-change-me')
 
-# DEBUG is still useful for error pages, etc.
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
@@ -37,7 +34,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'salon',
     'django_filters',
-    'storages', # Add django-storages
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -81,24 +78,16 @@ WSGI_APPLICATION = 'glowapp_backend.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'postgresql://user:password@host:port/dbname'),
+        default=os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3')),
         conn_max_age=600
     )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
 LANGUAGE_CODE = 'en-us'
@@ -109,38 +98,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# --- Media Files Configuration ---
-# FORCING all file uploads to go to Supabase, regardless of DEBUG status.
-
-# 1. Set the default storage backend to S3Boto3Storage.
-# This is the most important setting.
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-# 2. Set the required AWS-prefixed variables for django-storages to use.
-# These are read from your .env file.
-AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME')
-
-# 3. Configure the public URL for the files.
-# This ensures the frontend receives the correct URL.
-if AWS_S3_ENDPOINT_URL and AWS_STORAGE_BUCKET_NAME:
-    # Example: https://ominxkvbmysyovoroooz.supabase.co/storage/v1/object/public/glowapp-images/
-    MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/object/public/{AWS_STORAGE_BUCKET_NAME}/'
-else:
-    # Fallback if the environment variables are not set
-    MEDIA_URL = '/media/'
-
-# 4. Optional: Other useful settings for S3.
-AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = 'public-read'
-AWS_QUERYSTRING_AUTH = False
-
-# 5. Define MEDIA_ROOT. While files are stored in Supabase, Django needs this for temporary operations.
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media_temp')
-
+# --- Local Media Files Configuration ---
+# All uploaded files will be stored locally in the 'backend/media/' directory.
+DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -182,7 +144,6 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# Email Backend Configuration for Development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:9002')
 DEFAULT_FROM_EMAIL = 'no-reply@glowapp.com'

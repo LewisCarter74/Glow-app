@@ -19,8 +19,9 @@ class InspiredWorkSerializer(serializers.ModelSerializer):
         extra_kwargs = {'image': {'write_only': True}}
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         return None
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,8 +37,9 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.get_full_name() or obj.email
 
     def get_profile_image_url(self, obj):
+        request = self.context.get('request')
         if obj.profile_image and hasattr(obj.profile_image, 'url'):
-            return obj.profile_image.url
+            return request.build_absolute_uri(obj.profile_image.url)
         return None
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -103,8 +105,9 @@ class ServiceSerializer(serializers.ModelSerializer):
         extra_kwargs = {'category': {'write_only': True}}
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         return None
 
 class PortfolioImageSerializer(serializers.ModelSerializer):
@@ -117,8 +120,9 @@ class PortfolioImageSerializer(serializers.ModelSerializer):
         extra_kwargs = {'image': {'write_only': True}}
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         return None
 
 class StylistSerializer(serializers.ModelSerializer):
@@ -153,14 +157,16 @@ class StylistSerializer(serializers.ModelSerializer):
         return obj.review_set.count()
 
     def get_portfolio(self, obj):
-        return [img.image.url for img in obj.portfolio_images.all() if img.image]
+        request = self.context.get('request')
+        return [request.build_absolute_uri(img.image.url) for img in obj.portfolio_images.all() if img.image]
 
     def get_imageUrl(self, obj):
+        request = self.context.get('request')
         if obj.image and hasattr(obj.image, 'url'):
-            return obj.image.url
+            return request.build_absolute_uri(obj.image.url)
         first_portfolio_image = obj.portfolio_images.first()
         if first_portfolio_image and first_portfolio_image.image:
-            return first_portfolio_image.image.url
+            return request.build_absolute_uri(first_portfolio_image.image.url)
         return "https://placehold.co/1200x800"
 
 class AppointmentSerializer(serializers.ModelSerializer):
