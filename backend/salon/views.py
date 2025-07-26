@@ -310,38 +310,28 @@ class LoyaltyPointViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class FavoriteStylistViewSet(viewsets.ViewSet):
+class FavoriteStylistViewSet(viewsets.ModelViewSet):
+    serializer_class = FavoriteStylistSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def list(self, request):
-        queryset = FavoriteStylist.objects.filter(customer=request.user)
-        serializer = FavoriteStylistSerializer(queryset, many=True)
-        return Response(serializer.data)
+    def get_queryset(self):
+        return FavoriteStylist.objects.filter(customer=self.request.user)
 
-    @action(detail=True, methods=['post'])
-    def add(self, request, pk=None):
-        stylist = get_object_or_404(Stylist, pk=pk)
-        favorite, created = FavoriteStylist.objects.get_or_create(
+    def perform_create(self, serializer):
+        stylist_id = self.request.data.get('stylist')
+        stylist = get_object_or_404(Stylist, pk=stylist_id)
+        serializer.save(customer=self.request.user, stylist=stylist)
+
+    def destroy(self, request, *args, **kwargs):
+        stylist_id = self.kwargs.get('pk')
+        stylist = get_object_or_404(Stylist, pk=stylist_id)
+        favorite = get_object_or_404(
+            FavoriteStylist,
             customer=request.user,
             stylist=stylist
         )
-        serializer = FavoriteStylistSerializer(favorite)
-        if created:
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=['post'])
-    def remove(self, request, pk=None):
-        stylist = get_object_or_404(Stylist, pk=pk)
-        try:
-            favorite = FavoriteStylist.objects.get(
-                customer=request.user,
-                stylist=stylist
-            )
-            favorite.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except FavoriteStylist.DoesNotExist:
-            return Response({"error": "Favorite not found."}, status=status.HTTP_404_NOT_FOUND)
+        favorite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.annotate(service_count=Count('services')).order_by('-service_count')

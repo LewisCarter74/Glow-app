@@ -27,7 +27,5 @@ urlpatterns = [
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('referrals/', UserReferralView.as_view(), name='user-referrals'),
-    path('favorites/add/<int:pk>/', FavoriteStylistViewSet.as_view({'post': 'add'}), name='favorite-add'),
-    path('favorites/remove/<int:pk>/', FavoriteStylistViewSet.as_view({'post': 'remove'}), name='favorite-remove'),
     path('', include(router.urls)),
 ]
