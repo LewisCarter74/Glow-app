@@ -93,7 +93,9 @@ export default function BookingForm() {
                         params.stylist_id = selectedStylistId;
                     }
                     const times = await getAvailability(params);
-                    setAvailableTimes(Object.values(times).flatMap((stylist: any) => stylist.slots));
+                    const allTimes = Object.values(times).flatMap((stylist: any) => stylist.slots);
+                    const uniqueTimes = [...new Set(allTimes)].sort();
+                    setAvailableTimes(uniqueTimes);
                 } catch (error) {
                     console.error("Error fetching available times:", error);
                     toast({
