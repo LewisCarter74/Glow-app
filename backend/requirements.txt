@@ -18,7 +18,7 @@ boto3==1.34.58
 Pillow
 
 # Database (PostgreSQL)
-psycopg2-binary==2.9.9
+psycopg2-binary
 
 # Production Web Server & Static Files
 gunicorn==20.1.0
