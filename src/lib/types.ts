@@ -12,7 +12,7 @@ export interface Service {
   
   export interface Category {
     id: number;
-    name: string;
+    name:string;
     service_count: number;
   }
   
@@ -68,6 +68,7 @@ export interface Service {
     profile_image_url: string;
     referral_code: string;
     name: string;
+    role: string;
   }
   
   export interface Referral {

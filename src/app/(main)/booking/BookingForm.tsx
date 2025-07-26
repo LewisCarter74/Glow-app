@@ -61,7 +61,7 @@ export default function BookingForm() {
       };
       try {
         const fetchedServices = await getServices();
-        setServices(fetchedServices.filter(s => s.category_name === selectedCategory && s.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())));
+        setServices(fetchedServices.filter((s: Service) => s.category_name === selectedCategory && s.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())));
 
         if (debouncedSearchTerm.length === 0) {
             const fetchedStylists = await getStylists();
@@ -85,8 +85,12 @@ export default function BookingForm() {
               setIsLoadingTimes(true);
               setAvailableTimes([]); // Clear previous times
               try {
-                  const date = format(selectedDate, "yyyy-MM-dd");
-                  const times = await getAvailability(date, selectedServices);
+                  const params = {
+                    date: format(selectedDate, "yyyy-MM-dd"),
+                    service_ids: selectedServices.join(','),
+                    stylist_id: selectedStylistId !== 'any' ? selectedStylistId : undefined
+                  };
+                  const times = await getAvailability(params);
                   setAvailableTimes(Object.values(times).flatMap((stylist: any) => stylist.slots));
               } catch (error) {
                   console.error("Error fetching available times:", error);
@@ -103,7 +107,7 @@ export default function BookingForm() {
       };
 
       fetchAvailableTimes();
-  }, [selectedDate, selectedServices, toast]);
+  }, [selectedDate, selectedServices, toast, selectedStylistId]);
 
 
   const availableStylists = useMemo(() => {

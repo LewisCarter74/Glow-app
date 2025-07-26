@@ -173,6 +173,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if stylist_id:
             try:
                 stylist = Stylist.objects.get(id=stylist_id)
+                if not all(cat in stylist.specialties.all() for cat in required_categories):
+                    return Response({"error": "Selected stylist cannot perform all chosen services."}, status=status.HTTP_400_BAD_REQUEST)
                 stylists = [stylist]
             except Stylist.DoesNotExist:
                 return Response({"error": "Stylist not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -181,6 +183,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             for category in required_categories:
                 stylists = stylists.filter(specialties=category)
             stylists = stylists.distinct()
+
+        if not stylists:
+            return Response({})
         
         available_slots = {}
         for stylist in stylists:

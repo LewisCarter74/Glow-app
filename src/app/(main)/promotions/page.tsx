@@ -75,7 +75,7 @@ export default function PromotionsPage() {
 
     setIsRedeeming(true);
     try {
-      const result = await redeemLoyaltyPoints({ amount: +redeemAmount });
+      const result = await redeemLoyaltyPoints(+redeemAmount);
       toast({
         title: 'Success!',
         description: `${result.message}. Your new balance is ${result.new_loyalty_points}.`,

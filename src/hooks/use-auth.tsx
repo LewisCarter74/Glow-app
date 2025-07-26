@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { getProfile, login as apiLogin, register as apiRegister, LoginCredentials } from '@/lib/api';
+import { getProfile, login as apiLogin, register as apiRegister, LoginCredentials, logoutUser } from '@/lib/api';
 import Cookies from 'js-cookie';
 
 interface User {
@@ -36,6 +36,7 @@ interface AuthContextType {
   logout: () => void;
   reloadUser: () => Promise<void>;
   register: (userData: object) => Promise<any>;
+  signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,8 +93,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
-    Cookies.remove('access_token');
-    Cookies.remove('refresh_token');
+    logoutUser();
+    setUser(null);
+    router.push('/login');
+  };
+
+  const signOut = () => {
+    logoutUser();
     setUser(null);
     router.push('/login');
   };
@@ -119,6 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     reloadUser,
     register,
+    signOut
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

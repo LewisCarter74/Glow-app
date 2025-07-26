@@ -10,20 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
 import { fetchUserProfile, logoutUser } from '@/lib/api'; // Import fetchUserProfile and logoutUser
 import { useRouter } from 'next/navigation';
-
-interface UserProfile {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  role: string;
-  is_staff: boolean;
-  is_superuser: boolean;
-  date_joined: string;
-  name: string;
-  profile_image_url: string | null;
-}
+import { UserProfile } from '@/lib/types';
 
 export default function ProfileDetailsPage() {
   const { toast } = useToast();
@@ -48,7 +35,7 @@ export default function ProfileDetailsPage() {
           description: (err as Error).message || 'Could not fetch user profile.',
         });
         // If profile fetching fails, especially due to auth, redirect to login
-        router.push('/login'); 
+        router.push('/login');
       } finally {
         setIsLoading(false);
       }

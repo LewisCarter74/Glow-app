@@ -1,5 +1,6 @@
 
 import Cookies from 'js-cookie';
+import { Service, Stylist, Appointment, Review, Category, UserProfile, ReferralInfo, LoyaltyPoints, InspiredWork } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -11,9 +12,8 @@ interface RequestOptions {
 
 export interface LoginCredentials {
   email: string;
-  password?: string; 
+  password?: string;
 }
-
 
 async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const token = Cookies.get('access_token');
@@ -60,62 +60,70 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
 }
 
 // Authentication
-export const login = (credentials: LoginCredentials) => request('/salon/login/', { method: 'POST', body: credentials });
-export const register = (userData: object) => request('/salon/register/', { method: 'POST', body: userData });
-export const getProfile = () => request('/salon/profile/');
-export const updateProfile = (profileData: any) => request('/salon/profile/', { method: 'PUT', body: profileData });
+export const login = (credentials: LoginCredentials) => request<any>('/salon/login/', { method: 'POST', body: credentials });
+export const register = (userData: object) => request<any>('/salon/register/', { method: 'POST', body: userData });
+export const getProfile = () => request<UserProfile>('/salon/profile/');
+export const updateProfile = (profileData: any) => request<UserProfile>('/salon/profile/', { method: 'PUT', body: profileData });
+export const fetchUserProfile = () => request<UserProfile>('/salon/profile/');
+export const logoutUser = () => {
+  Cookies.remove('access_token');
+  Cookies.remove('refresh_token');
+};
 
 
 // Services
-export const getServices = () => request('/salon/services/');
-export const getService = (id: number) => request(`/salon/services/${id}/`);
-export const createService = (data: object) => request('/salon/services/', { method: 'POST', body: data });
-export const updateService = (id: number, data: object) => request(`/salon/services/${id}/`, { method: 'PUT', body: data });
-export const deleteService = (id: number) => request(`/salon/services/${id}/`, { method: 'DELETE' });
+export const getServices = () => request<Service[]>('/salon/services/');
+export const getService = (id: number) => request<Service>(`/salon/services/${id}/`);
+export const createService = (data: object) => request<Service>('/salon/services/', { method: 'POST', body: data });
+export const updateService = (id: number, data: object) => request<Service>(`/salon/services/${id}/`, { method: 'PUT', body: data });
+export const deleteService = (id: number) => request<void>(`/salon/services/${id}/`, { method: 'DELETE' });
 
 
 // Stylists
-export const getStylists = () => request('/salon/stylists/');
-export const getStylist = (id: number) => request(`/salon/stylists/${id}/`);
-export const getAvailableStylists = (serviceId: number) => request(`/salon/stylists/available-for-service/?service_id=${serviceId}`);
+export const getStylists = () => request<Stylist[]>('/salon/stylists/');
+export const getStylist = (id: number) => request<Stylist>(`/salon/stylists/${id}/`);
+export const getAvailableStylists = (serviceId: number) => request<Stylist[]>(`/salon/stylists/available-for-service/?service_id=${serviceId}`);
 
 
 // Appointments
-export const getAppointments = () => request('/salon/appointments/');
-export const createAppointment = (appointmentData: object) => request('/salon/appointments/', { method: 'POST', body: appointmentData });
-export const cancelAppointment = (id: number) => request(`/salon/appointments/${id}/cancel/`, { method: 'POST' });
+export const getAppointments = () => request<Appointment[]>('/salon/appointments/');
+export const createAppointment = (appointmentData: object) => request<Appointment>('/salon/appointments/', { method: 'POST', body: appointmentData });
+export const cancelAppointment = (id: number) => request<void>(`/salon/appointments/${id}/cancel/`, { method: 'POST' });
 export const getAvailability = (params: { date: string, service_ids: string, stylist_id?: string }) => {
     const urlParams = new URLSearchParams(params as any).toString();
-    return request(`/salon/appointments/availability/?${urlParams}`);
+    return request<{[key: number]: {stylist_name: string, slots: string[]}}>(`/salon/appointments/availability/?${urlParams}`);
 };
 
 
 // Reviews
 export const getReviews = (stylistId?: number) => {
     const url = stylistId ? `/salon/reviews/?stylist_id=${stylistId}` : '/salon/reviews/';
-    return request(url);
+    return request<Review[]>(url);
 };
-export const createReview = (reviewData: object) => request('/salon/reviews/', { method: 'POST', body: reviewData });
+export const createReview = (reviewData: object) => request<Review>('/salon/reviews/', { method: 'POST', body: reviewData });
 
 
 // Promotions
-export const getPromotions = () => request('/salon/promotions/');
+export const getPromotions = () => request<any[]>('/salon/promotions/');
 
 // Inspired Work
-export const getInspiredWork = () => request('/salon/inspired-work/');
+export const getInspiredWork = () => request<InspiredWork[]>('/salon/inspired-work/');
 
 
 // Favorites
-export const getFavorites = () => request('/salon/favorites/');
-export const addFavorite = (stylistId: number) => request('/salon/favorites/', { method: 'POST', body: { stylist: stylistId } });
-export const removeFavorite = (stylistId: number) => request(`/salon/favorites/${stylistId}/`, { method: 'DELETE' });
+export const getFavorites = () => request<any[]>('/salon/favorites/');
+export const addFavorite = (stylistId: number) => request<any>('/salon/favorites/', { method: 'POST', body: { stylist: stylistId } });
+export const removeFavorite = (stylistId: number) => request<void>(`/salon/favorites/${stylistId}/`, { method: 'DELETE' });
 
 
 // User Account Management
-export const getReferralInfo = () => request('/salon/referrals/');
-export const requestPasswordReset = (email: string) => request('/salon/password-reset/', { method: 'POST', body: { email } });
-export const confirmPasswordReset = (data: object) => request('/salon/password-reset/confirm/', { method: 'POST', body: data });
+export const getReferralInfo = () => request<ReferralInfo>('/salon/referrals/');
+export const requestPasswordReset = (email: string) => request<void>('/salon/password-reset/', { method: 'POST', body: { email } });
+export const confirmPasswordReset = (data: object) => request<void>('/salon/password-reset/confirm/', { method: 'POST', body: data });
 
 // Loyalty Points
-export const getLoyaltyPoints = () => request('/salon/loyalty-points/');
-export const redeemLoyaltyPoints = (amount: number) => request('/salon/loyalty-points/redeem/', { method: 'POST', body: { amount } });
+export const getLoyaltyPoints = () => request<LoyaltyPoints>('/salon/loyalty-points/');
+export const redeemLoyaltyPoints = (amount: number) => request<any>('/salon/loyalty-points/redeem/', { method: 'POST', body: { amount } });
+
+// Categories
+export const getCategories = () => request<Category[]>('/salon/categories/');
