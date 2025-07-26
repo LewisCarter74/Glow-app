@@ -35,13 +35,13 @@ def seed_data():
     beauty = Category.objects.create(name='Beauty')
 
     # Create Stylists
-    stylist1 = Stylist.objects.create(user=stylist_user1, bio='Expert in modern haircuts and coloring.', working_hours_start=time(9,0), working_hours_end=time(17,0))
+    stylist1 = Stylist.objects.create(user=stylist_user1, bio='Expert in modern haircuts and coloring.', working_hours_start=time(9,0), working_hours_end=time(17,0), image='portfolio_images/local_host.png')
     stylist1.specialties.add(hair)
 
-    stylist2 = Stylist.objects.create(user=stylist_user2, bio='Specializes in nail art and manicures.', working_hours_start=time(10,0), working_hours_end=time(18,0))
+    stylist2 = Stylist.objects.create(user=stylist_user2, bio='Specializes in nail art and manicures.', working_hours_start=time(10,0), working_hours_end=time(18,0), image='portfolio_images/local_host.png')
     stylist2.specialties.add(nails)
 
-    stylist3 = Stylist.objects.create(user=stylist_user3, bio='Experienced in facials and skin care treatments.', working_hours_start=time(9,0), working_hours_end=time(16,0))
+    stylist3 = Stylist.objects.create(user=stylist_user3, bio='Experienced in facials and skin care treatments.', working_hours_start=time(9,0), working_hours_end=time(16,0), image='portfolio_images/local_host.png')
     stylist3.specialties.add(beauty, hair)
 
     # Create Services

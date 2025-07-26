@@ -9,6 +9,7 @@ import type {NextConfig} from 'next';
           ignoreDuringBuilds: true,
        },
        images: {
+        dangerouslyAllowSVG: true,
          remotePatterns: [
            {
              protocol: 'https',
